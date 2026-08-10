@@ -1,0 +1,69 @@
+# This repo is almost entirely prose, and the prose links out to the Agent
+# Plugins spec, the Agent Skills spec, RFCs and our own docs site. A rotted link
+# in a skill is worse than a rotted link in a README: the agent is told to read
+# something it cannot open. Hence a scheduled run, not just per-PR.
+name: Links
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [develop]
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: links-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  internal:
+    name: Relative links
+    # Only on the cron sweep and manual runs. On a pull request the identical
+    # gate already runs as CI's "Plugin conformance" check, and running it twice
+    # meant a schema failure unrelated to links also reported as a red Links
+    # check, which is the opposite of the per-check legibility CI is split for.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --prefer-offline
+      # `validate` already fails on a relative link in the skill that resolves
+      # to nothing. Running it here means a link break is reported by the Links
+      # check too, where someone looking for a link problem will think to look.
+      - run: pnpm validate
+
+  external:
+    name: External URLs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: .lycheecache
+          key: lychee-${{ github.sha }}
+          restore-keys: lychee-
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          # Pinned so a lychee release cannot change this gate's behaviour
+          # without a commit here.
+          lycheeVersion: v0.24.2
+          # The whole repo, letting lychee.toml do the excluding, rather than a
+          # hand-listed file set: the previous list omitted CLAUDE.md and
+          # AGENTS.md, so the spec and docs-site links they cite went unchecked.
+          args: >-
+            --config lychee.toml
+            --cache
+            --max-cache-age 1d
+            --no-progress
+            .
+          fail: true

@@ -1,0 +1,8 @@
+node_modules
+coverage
+pnpm-lock.yaml
+.lycheecache
+
+# Vendored verbatim from their canonical URLs. Reformatting them would break the
+# byte-for-byte comparison with the published schemas that makes vendoring safe.
+scripts/schemas

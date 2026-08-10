@@ -1,0 +1,107 @@
+# Every job runs on a GitHub-hosted runner. Keep it that way: a job pinned to a
+# self-hosted label that no longer has a runner behind it queues until GitHub's
+# 24h limit and is then auto-cancelled, which reads as a red check that never
+# actually ran.
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+  # No push-to-main trigger: main only ever advances by merging a PR that
+  # already passed these gates, so re-running them there is pure duplication.
+  push:
+    branches: [develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    name: Format check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --prefer-offline
+      - run: pnpm format:check
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --prefer-offline
+      - run: pnpm lint:ci
+
+  # The three suites are separate jobs rather than one `pnpm test` so a failure
+  # names itself in the checks list: a spec-conformance break, a validator that
+  # stopped catching faults, and the skill drifting from the live MCP surface
+  # are three different problems with three different owners.
+  conformance:
+    name: Plugin conformance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --prefer-offline
+      - run: pnpm validate
+
+  self-test:
+    name: Validator self-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --prefer-offline
+      - run: pnpm self-test
+
+  drift:
+    name: Skill drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --prefer-offline
+      - run: pnpm check-drift
+
+  audit:
+    name: Audit (prod, HIGH+)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      # Deliberately no `cache: pnpm` and no install step: `pnpm audit` reads
+      # the lockfile and queries the registry, so warming a store the job never
+      # uses would only add time.
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      # Everything here is a devDependency, so `--prod` audits an empty set and
+      # would always pass vacuously. The whole dependency tree is the tooling,
+      # so this audits all of it.
+      - run: pnpm audit --audit-level=high

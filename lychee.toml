@@ -1,0 +1,41 @@
+# External link checking for the prose in this repo. The workflow points lychee
+# at the whole repo and this file decides what is out of scope, so a new markdown
+# file is covered the moment it lands rather than when someone remembers to add
+# it to a list in the workflow.
+
+exclude_path = [
+  'node_modules',
+  # Byte-copies of the published Agent Plugins schemas. Their $id URLs are
+  # identifiers, and one of them is fetched by the workflow anyway.
+  'scripts/schemas',
+  'pnpm-lock.yaml',
+  # Apache-2.0 boilerplate, not our prose.
+  'LICENSE',
+]
+
+# 403 and 429 are accepted because several of the hosts we cite (github.com,
+# datatracker.ietf.org) rate-limit or challenge unauthenticated CI traffic. A
+# challenge is not a dead link, and treating it as one makes the job flaky.
+accept = [200, 206, 403, 429]
+
+max_retries = 3
+retry_wait_time = 2
+timeout = 20
+max_concurrency = 8
+
+# Some hosts 403 a default user agent.
+user_agent = "Mozilla/5.0 (compatible; lychee link-checker)"
+
+# No mailto: links here, and probing them proves nothing anyway.
+include_mail = false
+
+exclude = [
+  # Our own MCP endpoint. It is cited constantly and correctly returns 401 to
+  # an unauthenticated probe, which lychee cannot distinguish from broken.
+  '^https?://mcp\.traveler\.md',
+
+  # traveler:// and ui:// resource URIs appear in prose. They are MCP resource
+  # identifiers, not fetchable URLs.
+  '^traveler://',
+  '^ui://',
+]

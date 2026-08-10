@@ -1,0 +1,25 @@
+# Supply-chain cooldown: refuse a version until it has been on the registry for
+# 3 days, so a hijacked release is yanked before we can install it (the npm
+# keyv/cacheable maintainer takeover on 2026-08-04 pushed credential-stealing
+# preinstall hooks that were live for ~40 minutes). Covers transitive deps too.
+# This MUST live here, not in .npmrc — pnpm 11 silently ignores the kebab-case
+# `minimum-release-age` there.
+# minimumReleaseAgeStrict is pinned to false on purpose: setting
+# minimumReleaseAge while leaving strict unset makes pnpm default it to true,
+# which hard-fails the install on any non-TTY (i.e. every CI job) instead of
+# recording the exception and proceeding.
+minimumReleaseAge: 4320
+minimumReleaseAgeStrict: false
+
+# simple-git-hooks needs its postinstall to write .git/hooks/*; without this it
+# is silently skipped and the repo has no pre-commit gate at all.
+#
+# BOTH keys are deliberate and neither is dead: `allowBuilds` is the pnpm 11
+# spelling and the one that shows up in node_modules/.modules.yaml,
+# `onlyBuiltDependencies` is the pnpm 10 spelling that the sibling repos also
+# still carry. Deleting the wrong one silently removes the git hooks, so they
+# stay together until the whole fleet drops the older key.
+allowBuilds:
+  simple-git-hooks: true
+onlyBuiltDependencies:
+  - simple-git-hooks
