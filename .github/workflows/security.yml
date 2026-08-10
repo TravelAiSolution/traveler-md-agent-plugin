@@ -1,0 +1,41 @@
+name: Security
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [develop]
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  socket-firewall:
+    name: socket firewall (install-time malware block)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: SocketDev/action@v1.3.2
+        with:
+          mode: firewall-free
+      # continue-on-error while the baseline settles, matching the sibling
+      # repos. Promote to a hard gate after a few clean Dependabot-style
+      # dependency bumps have run through it.
+      - run: sfw pnpm install --frozen-lockfile
+        continue-on-error: true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: socket-firewall-log
+          path: ~/.socket/
+          if-no-files-found: warn
+          retention-days: 7

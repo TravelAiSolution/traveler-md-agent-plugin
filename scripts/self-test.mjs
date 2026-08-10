@@ -1,0 +1,271 @@
+// Self-test for scripts/validate.mjs AND scripts/check-drift.mjs.
+//
+// A validator that only ever prints PASS proves nothing. This copies the
+// package to a temp directory, injects one deliberate fault at a time, and
+// asserts that validate.mjs exits non-zero AND that the specific check meant
+// to catch that fault is the one that failed. Asserting the check name is the
+// point: it stops a fault from being "caught" by an unrelated failure.
+//
+// Each case names the script it targets (`under`), because a checker with no
+// fault injection is a checker nobody has shown to work: check-drift.mjs scrapes
+// markdown tables, so a reformat that stops the regex matching is exactly the
+// silent failure this harness exists to rule out.
+//
+// Exit code 0 = every fault was caught by its intended check.
+
+import { execFile, execFileSync } from 'node:child_process';
+import { cpSync, mkdtempSync, readFileSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
+import { join, dirname, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const SKILL = 'skills/travelermd/SKILL.md';
+// Width of the reporter's "FAIL  " / "PASS  " prefix in the checker output. The
+// checkers and this harness have to agree on it; naming it makes that explicit
+// rather than leaving a bare offset in a slice().
+const MARK_WIDTH = 6;
+
+const editJson = (dir, rel, mutate) => {
+  const p = join(dir, rel);
+  const doc = JSON.parse(readFileSync(p, 'utf8'));
+  mutate(doc);
+  writeFileSync(p, JSON.stringify(doc, null, 2));
+};
+
+const editText = (dir, rel, find, replace) => {
+  const p = join(dir, rel);
+  const text = readFileSync(p, 'utf8');
+  if (!text.includes(find)) throw new Error(`fixture drift: ${rel} no longer contains ${find}`);
+  writeFileSync(p, text.replace(find, replace));
+};
+
+// Each case: a fault to inject, and a substring of the check name that must
+// be the one to fail.
+const CASES = [
+  {
+    what: 'forbidden top-level field in plugin.json',
+    expect: 'plugin.json schema violation',
+    apply: (d) => editJson(d, 'plugin.json', (m) => (m.hooks = {})),
+  },
+  {
+    what: 'uppercase plugin name',
+    expect: 'plugin.json schema violation',
+    apply: (d) => editJson(d, 'plugin.json', (m) => (m.name = 'Traveler-MD')),
+  },
+  {
+    what: 'consecutive hyphens in plugin name',
+    expect: 'plugin.json schema violation',
+    apply: (d) => editJson(d, 'plugin.json', (m) => (m.name = 'traveler--md')),
+  },
+  {
+    what: 'mcp.json declares a different spec version than plugin.json',
+    expect: 'mcp.json schema violation',
+    apply: (d) => editText(d, 'mcp.json', 'schemas/1.0.0/mcp', 'schemas/1.1.0/mcp'),
+  },
+  {
+    what: 'plaintext http to a non-loopback host',
+    expect: 'uses HTTPS',
+    apply: (d) => editText(d, 'mcp.json', 'https://mcp', 'http://mcp'),
+  },
+  {
+    what: 'credential embedded in headers',
+    expect: 'headers carry no credentials',
+    apply: (d) =>
+      editJson(d, 'mcp.json', (m) => {
+        m.mcpServers.travelermd.headers = { Authorization: 'Bearer abc123' };
+      }),
+  },
+  {
+    what: 'duplicate header name differing only in case',
+    expect: 'header names are unique',
+    apply: (d) =>
+      editJson(d, 'mcp.json', (m) => {
+        m.mcpServers.travelermd.headers = { 'X-Tenant': 'a', 'x-tenant': 'b' };
+      }),
+  },
+  {
+    what: 'unknown field in a server entry',
+    expect: 'mcp.json schema violation',
+    apply: (d) =>
+      editJson(d, 'mcp.json', (m) => {
+        m.mcpServers.travelermd.oauth = {};
+      }),
+  },
+  {
+    what: 'url carries a fragment',
+    expect: 'url carries no fragment',
+    apply: (d) =>
+      editJson(d, 'mcp.json', (m) => {
+        m.mcpServers.travelermd.url = 'https://mcp.traveler.md/mcp#x';
+      }),
+  },
+  {
+    what: 'skill name no longer matches its directory',
+    expect: 'name matches its directory',
+    apply: (d) => editText(d, SKILL, 'name: travelermd', 'name: travelermd-x'),
+  },
+  {
+    what: 'unknown frontmatter field',
+    expect: 'frontmatter has no unknown fields',
+    apply: (d) => editText(d, SKILL, 'compatibility:', 'hooks: yes\ncompatibility:'),
+  },
+  {
+    what: 'over-long skill description',
+    expect: 'description is 1-1024 chars',
+    apply: (d) => {
+      const p = join(d, SKILL);
+      const text = readFileSync(p, 'utf8');
+      writeFileSync(p, text.replace(/^description: .*$/m, `description: ${'x'.repeat(1025)}`));
+    },
+  },
+  {
+    what: 'broken relative link (the link target, not its text)',
+    expect: 'link resolves in',
+    apply: (d) => editText(d, SKILL, '](references/tools.md)', '](references/gone.md)'),
+  },
+  {
+    what: 'SKILL.md missing from a skill directory',
+    expect: 'SKILL.md is a regular file',
+    apply: (d) => rmSync(join(d, SKILL)),
+  },
+  {
+    what: 'symlink escaping the plugin root',
+    expect: 'outside the plugin root',
+    apply: (d) => symlinkSync('/etc/hosts', join(d, 'skills/travelermd/references/escape.md')),
+  },
+
+  // --- check-drift.mjs ---
+  {
+    what: 'a section table reformatted so the row regex stops matching',
+    under: 'check-drift.mjs',
+    expect: 'every section is documented',
+    apply: (d) =>
+      editText(
+        d,
+        'skills/travelermd/references/profile-sections.md',
+        '| `profile_overview`        | 10 ',
+        '| `profile_overview` | public | 10 ',
+      ),
+  },
+  {
+    what: 'a cap edited in the prose but not in the fixture',
+    under: 'check-drift.mjs',
+    expect: 'every sentence cap matches',
+    apply: (d) =>
+      editText(
+        d,
+        'skills/travelermd/references/trip-sections.md',
+        '| `itinerary`              | 100 ',
+        '| `itinerary`              | 999 ',
+      ),
+  },
+  {
+    what: 'a retired status left in a file no allowlist covers',
+    under: 'check-drift.mjs',
+    expect: 'no retired or invented status values',
+    apply: (d) =>
+      editText(
+        d,
+        'skills/travelermd/references/profile-sections.md',
+        'status `Dreaming`',
+        'status `Active`',
+      ),
+  },
+  {
+    what: 'a fixture whose private scopes were all flipped to public',
+    under: 'check-drift.mjs',
+    expect: 'has private sections to flag',
+    apply: (d) =>
+      editJson(d, 'scripts/fixtures/live-surface.json', (f) => {
+        for (const k of Object.keys(f.profileScopes)) f.profileScopes[k] = 'public';
+        for (const k of Object.keys(f.tripScopes)) f.tripScopes[k] = 'public';
+      }),
+  },
+];
+
+// Sanity gate: the unmutated package must pass BOTH checkers, or every "caught"
+// below is meaningless.
+for (const script of ['scripts/validate.mjs', 'scripts/check-drift.mjs']) {
+  try {
+    execFileSync(process.execPath, [join(ROOT, script)], { cwd: ROOT });
+    console.log(`PASS  baseline: the unmutated package passes ${script}`);
+  } catch (err) {
+    console.log(`FAIL  baseline: the unmutated package does not pass ${script}`);
+    console.log(String(err.stdout ?? ''));
+    process.exit(1);
+  }
+}
+console.log();
+
+// Cases are fully independent: each gets its own temp dir, its own read-only
+// node_modules symlink and its own child process, so they run concurrently.
+// Verdicts are collected by index and printed in CASES order, so the report
+// stays deterministic. The cap keeps 19 node spawns from swamping a small runner.
+const CONCURRENCY = Number(process.env.SELFTEST_CONCURRENCY ?? 6);
+
+function runCase(c) {
+  const dir = mkdtempSync(join(tmpdir(), 'agent-plugin-selftest-'));
+  for (const item of ['plugin.json', 'mcp.json', 'skills', 'scripts', 'package.json']) {
+    cpSync(join(ROOT, item), join(dir, item), { recursive: true });
+  }
+  // A symlink, not a copy, because installing per case would dominate the run.
+  // NOTE: only node_modules may be shared this way. Symlinking `scripts` would
+  // make Node resolve import.meta.url to the real repo, so the checker would
+  // validate the pristine package and every fault would read as MISSED.
+  symlinkSync(join(ROOT, 'node_modules'), join(dir, 'node_modules'));
+
+  try {
+    c.apply(dir);
+  } catch (err) {
+    rmSync(dir, { recursive: true, force: true });
+    return Promise.resolve({ ok: false, why: `could not inject the fault: ${err.message}` });
+  }
+
+  const script = join(dir, `scripts/${c.under ?? 'validate.mjs'}`);
+  return new Promise((resolve) => {
+    execFile(process.execPath, [script], { cwd: dir }, (err, stdout) => {
+      rmSync(dir, { recursive: true, force: true });
+      if (!err) {
+        resolve({ ok: false, why: 'the checker passed a package it should have rejected' });
+        return;
+      }
+      const failed = String(stdout)
+        .split('\n')
+        .filter((l) => l.startsWith('FAIL'));
+      const hit = failed.find((l) => l.includes(c.expect));
+      resolve(
+        hit
+          ? { ok: true, why: hit.slice(MARK_WIDTH, MARK_WIDTH + 90) }
+          : {
+              ok: false,
+              why: `rejected, but not by "${c.expect}" — got: ${failed[0] ?? '(no FAIL line)'}`,
+            },
+      );
+    });
+  });
+}
+
+const verdicts = Array.from({ length: CASES.length });
+let next = 0;
+await Promise.all(
+  Array.from({ length: Math.min(CONCURRENCY, CASES.length) }, async () => {
+    while (next < CASES.length) {
+      const i = next++;
+      verdicts[i] = await runCase(CASES[i]);
+    }
+  }),
+);
+
+let failures = 0;
+CASES.forEach((c, i) => {
+  const v = verdicts[i];
+  if (!v.ok) failures += 1;
+  console.log(`${v.ok ? 'caught' : 'MISSED'}  ${c.what}\n        ${v.why}`);
+});
+
+console.log(
+  `\n${CASES.length - failures}/${CASES.length} faults caught by their intended check` +
+    (failures ? ` — ${failures} MISSED` : ''),
+);
+process.exit(failures ? 1 : 0);

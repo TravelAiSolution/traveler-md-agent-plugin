@@ -1,0 +1,14 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "traveler-md",
+  "version": "0.1.0",
+  "description": "Read and write a traveler's portable travel profile (traveler.md) and trip plans (trip.md) over the traveler.md MCP server, with skills that teach the read-before-write concurrency loop and the section model.",
+  "author": {
+    "name": "TravelAI",
+    "url": "https://traveler.md"
+  },
+  "homepage": "https://docs.traveler.md/mcp",
+  "repository": "https://github.com/TravelAiSolution/traveler-md-agent-plugin",
+  "license": "Apache-2.0",
+  "keywords": ["travel", "traveler-md", "trip-planning", "mcp", "personalization"]
+}

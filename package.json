@@ -1,0 +1,49 @@
+{
+  "name": "traveler-md-agent-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Validation tooling for the traveler.md Agent Plugin. The plugin itself is content, not code.",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=24.0.0 <25.0.0"
+  },
+  "scripts": {
+    "validate": "node scripts/validate.mjs",
+    "self-test": "node scripts/self-test.mjs",
+    "check-drift": "node scripts/check-drift.mjs",
+    "test": "pnpm validate && pnpm self-test && pnpm check-drift",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "lint:ci": "eslint --max-warnings 0",
+    "lint:ci:fix": "eslint --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "simple-git-hooks"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm exec lint-staged",
+    "pre-push": "pnpm test"
+  },
+  "lint-staged": {
+    "*.mjs": [
+      "oxlint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "ajv": "^8.20.0",
+    "eslint": "^9.39.4",
+    "globals": "^17.9.0",
+    "lint-staged": "^15.5.2",
+    "oxlint": "^1.68.0",
+    "prettier": "^3.8.3",
+    "simple-git-hooks": "^2.13.1",
+    "yaml": "^2.9.0"
+  }
+}
