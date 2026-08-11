@@ -1,7 +1,7 @@
 ---
 name: travelermd
 description: Read and write a traveler's portable travel profile (traveler.md) and their trip plans (trip.md) through the traveler.md MCP server. Use when the user asks to remember, recall, or change their travel preferences, or to create, find, update, or archive a trip. Covers the read-before-write version-hash loop, the section model and its sentence caps, and how to recover from each error the server returns.
-license: Apache-2.0
+license: MIT
 compatibility: Requires network access and a one-time OAuth authorization to https://mcp.traveler.md/mcp
 metadata:
   author: TravelAI
