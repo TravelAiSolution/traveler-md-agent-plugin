@@ -32,7 +32,16 @@ The split matters. "Prefers aisle seats" belongs in the profile. "Seat 14C on th
 | `update_trip`    | `trip.update`    | Change a trip's envelope or sections         |
 | `archive_trip`   | `trip.update`    | File a trip away                             |
 
-Full argument and response shapes: [references/tools.md](references/tools.md).
+## Reference files
+
+An ordinary read or write needs nothing beyond this page. Open a reference when you need its detail:
+
+| File                                                             | Open it when                                                          |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------- |
+| [references/tools.md](references/tools.md)                       | You need exact argument names, response fields, or how paging behaves |
+| [references/profile-sections.md](references/profile-sections.md) | You are choosing a profile section, or need its sentence cap          |
+| [references/trip-sections.md](references/trip-sections.md)       | You are choosing a trip section, or need the status list              |
+| [references/errors.md](references/errors.md)                     | A call failed and the summary table below does not say enough         |
 
 ## Five rules that prevent almost every failure
 
@@ -40,13 +49,13 @@ Full argument and response shapes: [references/tools.md](references/tools.md).
 
 **2. A section you send is replaced wholesale.** There is no append. To add one sentence to `activities`, read the trip, take the existing `activities` array, append your sentence, and send the whole array back. Sending just the new sentence silently deletes everything else in that section.
 
-**3. A section you omit is untouched.** This is what makes partial writes safe. Send only the sections you are actually changing. Sending an explicit `[]` is different: it wipes the section, and the two update tools now **reject** an `[]` unless the call also carries `allow_clear_sections: true`, naming every section it would have emptied. Omit a section to leave it alone; set the flag only when the traveler asked you to erase something. The creates have no flag, because an empty section on a first write clears nothing.
+**3. A section you omit is untouched.** This is what makes partial writes safe. Send only the sections you are actually changing. Sending an explicit `[]` is different: it wipes the section, and the two update tools **reject** an `[]` unless the call also carries `allow_clear_sections: true`, naming every section it would have emptied. Omit a section to leave it alone; set the flag only when the traveler asked you to erase something. The creates have no flag, because an empty section on a first write clears nothing.
 
 Omitting the whole `sections` argument is different again: `create_profile`, `update_profile` and `create_trip` reject a call without it, even though the published schema does not mark it required. Only `update_trip` defaults it, which is what makes an envelope-only status flip a one-argument call.
 
 **4. Respect the per-section sentence cap.** Each section has its own limit (`profile_overview` takes 10, `itinerary` takes 100). The caps are in the tool's input schema as `maxItems` and in each field's description. Over the cap is a `VALIDATION_ERROR` naming the section and the cap. Consolidate into fewer, denser sentences rather than truncating and losing content. Caps: [references/profile-sections.md](references/profile-sections.md), [references/trip-sections.md](references/trip-sections.md).
 
-**5. Use only spec section names.** Unknown section names are rejected. There is no free-form section; anything that does not fit a named section goes in `additional_information`.
+**5. Use only spec section names.** Unknown section names are rejected. There is no free-form section; anything that does not fit a named section goes in `additional_information`. The two lists are [references/profile-sections.md](references/profile-sections.md) and [references/trip-sections.md](references/trip-sections.md); never guess a name from memory.
 
 ## The read-write loop
 
@@ -100,6 +109,31 @@ Keep paging while `next_cursor` is present even if `items` came back empty: an e
 
 `update_trip` can change the envelope (`title`, `status`, `start_date`, `end_date`, `slug`), the sections, or both in one call. `sections` is optional, so a status flip needs nothing else.
 
+Example, creating a trip and later moving it along:
+
+```json
+// 1. create_trip. title and status are envelope, not sections. sections is
+//    required here even though the published schema does not mark it so.
+{
+  "title": "Kyoto in spring",
+  "status": "Planning",
+  "start_date": "2027-04-02",
+  "sections": {
+    "destinations": ["Kyoto, with two nights in Osaka at the end."],
+    "accommodation": ["Wants a ryokan with a private onsen for the first two nights."]
+  }
+}
+// -> { trip_id: "...", version_hash: "4b81...c07d", ... }
+
+// 2. update_trip, once the flights are ticketed. An envelope-only change
+//    carries no sections at all.
+{
+  "trip_id": "...",
+  "status": "Booked",
+  "expected_version_hash": "4b81...c07d"
+}
+```
+
 ## Confirm the write landed
 
 Every `update_*` response includes a `changes` object (`added`, `updated`, `removed` section names, plus per-sentence diffs for updated sections) whenever the server had a pre-write state to diff against.
@@ -116,15 +150,18 @@ Every `update_*` response includes a `changes` object (`added`, `updated`, `remo
 | `FORBIDDEN`                           | The token lacks the scope, or the traveler withheld a section                                              | Tell the user which capability is missing and stop. Retrying cannot grant a scope.                                                                                                                                 |
 | `NOT_FOUND`                           | Unknown or archived `trip_id`                                                                              | Re-list. Archived trips are invisible to `list_trips` and 404 on read and update.                                                                                                                                  |
 | `UNAUTHORIZED`                        | No valid authorization                                                                                     | Ask the user to authorize once, then stop. Do not loop on retries or refreshes.                                                                                                                                    |
+| `RATE_LIMITED`                        | Too many calls in a short window. Arrives as an HTTP 429, not as a tool error, so the tool never ran       | Wait the `retry-after` seconds, then retry once. Nothing was written.                                                                                                                                              |
 | `INTERNAL`                            | Server-side fault                                                                                          | Retry at most once. If it persists, report it rather than working around it.                                                                                                                                       |
 
 Detail and exact messages: [references/errors.md](references/errors.md).
+
+**When you cannot reach the files at all, say so.** An unreachable server or a revoked grant is not a licence to answer from memory or invent a preference to fill the gap. Tell the traveler the connection is not responding so they can reconnect it, and leave the answer incomplete.
 
 ## Retries and idempotency
 
 Every write accepts an optional `idempotency_key`: any unique string of 1 to 255 characters, no particular format, valid for an hour. Set one when a write is expensive to repeat or when you may not see the response (network timeout), so a retry with the same key returns the original result instead of writing twice. A retry with the same key but different arguments is rejected as `IDEMPOTENCY_MISMATCH`.
 
-## Two things to keep small
+## Keep reads and writes small
 
 `include_markdown` defaults to `false` and should stay false unless you are about to show the traveler their rendered document. The rendered form can reach 1 MiB, and the `sections` you get by default are already in exactly the shape the write tools accept, so a read/edit/write loop needs no markdown and no reshaping.
 
