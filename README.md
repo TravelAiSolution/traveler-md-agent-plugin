@@ -19,11 +19,40 @@ Eight tools cover it: `read_profile`, `create_profile`, `update_profile`, `creat
 
 ## Install
 
-Agent Plugins v1 deliberately defines no install mechanism, distribution protocol, or registry. Each client owns its own install path, so follow your client's instructions for adding a local or Git-hosted Agent Plugin and point it at this repository.
+### The whole package
 
-There are no credentials to configure. The package names the endpoint and nothing else: the traveler authorizes once through OAuth in their browser, and the client discovers the authorization server from the endpoint's [protected-resource metadata](https://datatracker.ietf.org/doc/html/rfc9728).
+Agent Plugins v1 deliberately defines no install mechanism, distribution protocol, or registry. Each client owns its own install path, so follow your client's instructions for adding a local or Git-hosted Agent Plugin and point it at this repository. That is the path that gets the skill as well as the server.
 
-To connect the MCP server on its own, without the plugin, see <https://docs.traveler.md/mcp>.
+### The MCP server on its own
+
+If your client does not read Agent Plugins yet, connect the server directly. One click:
+
+[![Add to Claude](https://img.shields.io/badge/Add%20to-Claude-D97757?style=for-the-badge)](https://claude.ai/directory/connectors/traveler-md)
+[![Add to Cursor](https://img.shields.io/badge/Add%20to-Cursor-1A1A1A?style=for-the-badge)](https://cursor.com/install-mcp?name=travelermd&config=eyJ1cmwiOiJodHRwczovL21jcC50cmF2ZWxlci5tZC9tY3AifQ%3D%3D)
+[![Add to VS Code](https://img.shields.io/badge/Add%20to-VS%20Code-0098FF?style=for-the-badge)](https://vscode.dev/redirect/mcp/install?name=travelermd&config=%7B%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fmcp.traveler.md%2Fmcp%22%7D)
+
+Or one command:
+
+```bash
+claude mcp add --transport http travelermd https://mcp.traveler.md/mcp   # Claude Code
+codex mcp add travelermd --url https://mcp.traveler.md/mcp               # Codex
+```
+
+Any other client that speaks remote MCP takes the URL directly:
+
+```json
+{
+  "mcpServers": {
+    "travelermd": {
+      "url": "https://mcp.traveler.md/mcp"
+    }
+  }
+}
+```
+
+This path gives the agent the tools without the skill, which is the difference the next section is about. Per-client walkthroughs for Claude, Claude Code, Cursor, Codex, ChatGPT, Gemini and others are at <https://docs.traveler.md/mcp>.
+
+There are no credentials to configure on either path. The package names the endpoint and nothing else: the traveler authorizes once through OAuth in their browser, and the client discovers the authorization server from the endpoint's [protected-resource metadata](https://datatracker.ietf.org/doc/html/rfc9728).
 
 ## What is in the package
 
