@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Validation tooling for the traveler.md Agent Plugin. The plugin itself is content, not code.",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "packageManager": "pnpm@11.9.0",
   "engines": {
     "node": ">=24.0.0 <25.0.0"

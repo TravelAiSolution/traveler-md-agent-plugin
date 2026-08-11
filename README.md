@@ -2,7 +2,28 @@
 
 An [Agent Plugins v1.0.0](https://agent-plugins.org/specification) package that connects an agent to a traveler's own **traveler.md** profile and **trip.md** trip plans, and teaches it how to write them correctly.
 
-Maintained by [traveler.md](https://traveler.md). Licensed under Apache-2.0.
+Maintained by [traveler.md](https://traveler.md). Licensed under the [MIT License](LICENSE).
+
+## What it gives an agent
+
+**traveler.md** is a portable travel profile owned by the traveler rather than by any one app: how they like to fly, where they like to stay, who they usually travel with. **trip.md** is the plan for a single trip. Both live behind one MCP server, and both belong to the traveler, who authorizes access once and can revoke it at any time.
+
+Install this package and an agent can:
+
+- Recall a traveler's durable preferences instead of asking for them again every session.
+- Record a new preference in the right place, so it survives into the next trip and the next agent.
+- Create, find, update and archive trips, with the trip detail kept out of the durable profile.
+- Recover correctly when a write collides with another agent writing the same section.
+
+Eight tools cover it: `read_profile`, `create_profile`, `update_profile`, `create_trip`, `read_trip`, `update_trip`, `list_trips` and `archive_trip`.
+
+## Install
+
+Agent Plugins v1 deliberately defines no install mechanism, distribution protocol, or registry. Each client owns its own install path, so follow your client's instructions for adding a local or Git-hosted Agent Plugin and point it at this repository.
+
+There are no credentials to configure. The package names the endpoint and nothing else: the traveler authorizes once through OAuth in their browser, and the client discovers the authorization server from the endpoint's [protected-resource metadata](https://datatracker.ietf.org/doc/html/rfc9728).
+
+To connect the MCP server on its own, without the plugin, see <https://docs.traveler.md/mcp>.
 
 ## What is in the package
 
@@ -23,7 +44,7 @@ Maintained by [traveler.md](https://traveler.md). Licensed under Apache-2.0.
 
 Two portable component types, which is all v1 defines:
 
-- **One MCP server.** `https://mcp.traveler.md/mcp`, Streamable HTTP. No credentials in the package: the traveler authorizes once through OAuth, and the client discovers the authorization server from the endpoint's [protected-resource metadata](https://datatracker.ietf.org/doc/html/rfc9728).
+- **One MCP server.** `https://mcp.traveler.md/mcp`, Streamable HTTP.
 - **One skill.** The server's tool schemas already describe the arguments. What they cannot express is the operational knowledge: that writes replace a section wholesale, that every update needs a version hash from a fresh read, that a misspelled argument name produces a successful-looking no-op. That is what the skill carries.
 
 `scripts/` is not a plugin component. Agent Plugins v1 defines exactly two component types, skills
@@ -44,13 +65,14 @@ Connecting an agent to the MCP server is one line of configuration. Getting it t
 
 The skill front-loads each of those. Shipping it in the same package as the server config means an agent arrives already knowing them, instead of learning by failing against a real traveler's data.
 
-## Installing
+## Portability across clients
 
-Agent Plugins v1 deliberately defines no install mechanism, distribution protocol, or registry. Each client owns its own install path, so follow your client's instructions for adding a local or Git-hosted Agent Plugin and point it at this repository.
+`plugin.json`'s top-level schema is closed: only `$schema`, `name`, `version`, `description`, `author`, `homepage`, `repository`, `license`, `keywords` and `extensions` are permitted. Hooks, agents, commands and similar features are not portable v1 components. If a client needs them, they belong under a reverse-domain namespace that client owns, either as an `extensions` object in the manifest or as a top-level `com.vendor.client/` directory. This package uses neither, so it stays portable across every conforming client.
 
-To connect the MCP server on its own, without the plugin, see <https://docs.traveler.md/mcp>.
+## Working on this repo
 
-## Validating
+The package is content, not an application. There is no build step. Node 24 and pnpm are all you
+need, and `.nvmrc` pins the version.
 
 ```bash
 pnpm install
@@ -73,17 +95,18 @@ The two Agent Plugins schemas are vendored under `scripts/schemas/1.0.0/`, fetch
 
 ## Keeping the skill honest
 
-The skill states argument names, section names, caps, status values and error codes explicitly. That is what makes it useful and also what makes it rot. When the MCP surface changes, update this package in the same pull request as the server change.
+The skill states argument names, section names, caps, status values and error codes explicitly. That is what makes it useful and also what makes it rot. When the MCP surface changes, this package is updated alongside the server change.
 
 `scripts/fixtures/live-surface.json` is a pinned snapshot of the section caps, scopes and enums the
 server advertises, generated by reading the server's own schema definitions rather than by hand.
 `check-drift` compares the skill against it, so a claim that has drifted fails CI instead of quietly
 misinforming an agent.
 
-Refreshing that snapshot needs a checkout of the traveler.md server, so the command and the
-source-of-truth map for each class of claim live with the server rather than here. **Maintainers: see
-`docs/agent-plugin.md` in the traveler.md server repository.** A snapshot refresh that makes
-`check-drift` fail is the signal that the skill's prose needs updating too, not just the fixture.
+Regenerating that snapshot reads the traveler.md server's schema definitions directly, so it is a
+maintainer task and the command lives with the server rather than here. If you spot a claim in the
+skill that the live server no longer honours, open an issue with what you observed and we will
+refresh the fixture. A refresh that makes `check-drift` fail is the signal that the skill's prose
+needs updating too, not just the fixture.
 
 Bump `plugin.json` `version` on any content change: clients use it for update checks and cache
 freshness.
@@ -97,11 +120,9 @@ schemas, so they will not show up in a schema diff and the drift check cannot se
 - **`CONFLICT` recovery detail arrives in the error message, not in a structured field**, which is why
   the skill tells agents to read the message for the current hash.
 
-## Client-specific capabilities
-
-`plugin.json`'s top-level schema is closed: only `$schema`, `name`, `version`, `description`, `author`, `homepage`, `repository`, `license`, `keywords` and `extensions` are permitted. Hooks, agents, commands and similar features are not portable v1 components. If a client needs them, they belong under a reverse-domain namespace that client owns, either as an `extensions` object in the manifest or as a top-level `com.vendor.client/` directory. This package uses neither, so it stays portable across every conforming client.
-
 ## Contributing
+
+Issues and pull requests are welcome.
 
 `main` is the release branch and `develop` is integration; open pull requests against `develop`.
 Branch prefixes are `feat/`, `fix/`, `chore/`, `ci/`, `docs/`, `refactor/`, `test/`, and commit
@@ -109,11 +130,13 @@ subjects are conventional commits, lowercase.
 
 Before opening a PR, run the three gates CI runs: `pnpm format:check`, `pnpm lint:ci`, `pnpm test`.
 If your change touches anything the skill asserts about the MCP server, say in the PR what you
-verified it against; `CLAUDE.md` lists the source-of-truth file for every class of claim.
+verified it against. A claim you cannot verify is better left out than guessed at, because an agent
+will act on it against a real traveler's data.
 
 ## License
 
-[Apache-2.0](LICENSE). Copyright 2026 TravelAI Solutions Inc.
+[MIT](LICENSE). Copyright (c) 2026 TravelAI Solutions Inc.
 
-Apache-2.0 §6 does not grant rights in the traveler.md name or marks: you are free to fork, adapt
-and redistribute this package, but a fork must not imply that traveler.md endorses it.
+You are free to fork, adapt and redistribute this package. The licence covers the contents of this
+repository and grants no rights in the traveler.md or TravelAI names, logos or other marks, so
+please do not present a fork in a way that implies traveler.md published or endorsed it.
