@@ -16,7 +16,7 @@ Section names are exact. Unknown names are rejected. Every section is optional; 
 | `work_travel`             | 30            | Business-trip patterns: typical duration, hotel setup, workspace needs, routines.                                   |
 | `destination_preferences` | 50            | Types of destinations they like, avoid, or prioritize.                                                              |
 | `transportation`          | 30            | Getting around cities, rural areas, road trips. Not flights.                                                        |
-| `food_dining`             | 50            | Food interests, dining style, booking habits, strong preferences, allergies.                                        |
+| `food_dining`             | 50            | General food interests, dining style, restaurant booking habits, strong preferences. No medical detail.             |
 | `activities_interests`    | 50            | Activities, experiences and themes they usually enjoy.                                                              |
 | `travel_companions`       | 20            | Who they travel with and persistent preferences about those groups. See consent note below.                         |
 | `family_travel`           | 20            | Traveling with children, parents, siblings, extended family.                                                        |
@@ -35,6 +35,8 @@ Section names are exact. Unknown names are rejected. Every section is optional; 
 
 **`loyalty_programs` has a fixed sentence format:** one program per sentence, `<Brand> — <Status>`, for example `Hilton Honors — Gold`. When no tier is given, still use the separator: `Alaska Mileage Plan — `. Do not put membership numbers here; those are `identity_documents`.
 
+**Medical detail belongs in no section.** Allergies, intolerances, dietary restrictions and health conditions are not travel preferences. Keep them out of `food_dining` and out of every other section, including when the traveler mentions one in passing. A dining preference is fine to record ("prefers vegetarian menus"); the medical reason behind it is not. Note that `food_dining` is a public-scope section, so anything written there is readable by every client the traveler connects.
+
 **`identity_documents` is owner-only and sensitive.** Read it only when the task needs it. Never echo a passport or known-traveler number back into conversation, a summary, or another section.
 
 ## Choosing between profile and trip
@@ -45,7 +47,7 @@ Section names are exact. Unknown names are rejected. Every section is optional; 
 | "Put me in 14C on this one"           | trip `flights`                     |
 | "I hate resorts"                      | profile `accommodation`            |
 | "Book the Hyatt for Kyoto"            | trip `accommodation`               |
-| "I'm vegetarian"                      | profile `food_dining`              |
+| "I prefer vegetarian menus"           | profile `food_dining`              |
 | "Let's do the tasting menu Thursday"  | trip `restaurants_food`            |
 | "We did Portugal in 2024, loved it"   | profile `past_trips`               |
 | "We're thinking Portugal next spring" | a trip document, status `Dreaming` |
