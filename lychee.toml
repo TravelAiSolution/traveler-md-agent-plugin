@@ -9,7 +9,7 @@ exclude_path = [
   # identifiers, and one of them is fetched by the workflow anyway.
   'scripts/schemas',
   'pnpm-lock.yaml',
-  # Apache-2.0 boilerplate, not our prose.
+  # MIT license text, not our prose.
   'LICENSE',
 ]
 
@@ -38,4 +38,9 @@ exclude = [
   # identifiers, not fetchable URLs.
   '^traveler://',
   '^ui://',
+
+  # The VS Code install button. It answers 302 to a vscode: URL, which is the
+  # point of it and which lychee cannot follow. Verified by hand instead: the
+  # redirect target must stay a vscode:mcp/install link carrying our config.
+  '^https://vscode\.dev/redirect/',
 ]

@@ -1,11 +1,11 @@
 ---
 name: travelermd
 description: Read and write a traveler's portable travel profile (traveler.md) and their trip plans (trip.md) through the traveler.md MCP server. Use when the user asks to remember, recall, or change their travel preferences, or to create, find, update, or archive a trip. Covers the read-before-write version-hash loop, the section model and its sentence caps, and how to recover from each error the server returns.
-license: Apache-2.0
+license: MIT
 compatibility: Requires network access and a one-time OAuth authorization to https://mcp.traveler.md/mcp
 metadata:
   author: TravelAI
-  version: '0.1.0'
+  version: '0.2.0'
 ---
 
 # Working with traveler.md and trip.md
@@ -40,7 +40,7 @@ Full argument and response shapes: [references/tools.md](references/tools.md).
 
 **2. A section you send is replaced wholesale.** There is no append. To add one sentence to `activities`, read the trip, take the existing `activities` array, append your sentence, and send the whole array back. Sending just the new sentence silently deletes everything else in that section.
 
-**3. A section you omit is untouched.** This is what makes partial writes safe. Send only the sections you are actually changing. Sending an explicit `[]` is different: it wipes the section. Do not send `[]` unless the user asked you to clear something.
+**3. A section you omit is untouched.** This is what makes partial writes safe. Send only the sections you are actually changing. Sending an explicit `[]` is different: it wipes the section, and the two update tools now **reject** an `[]` unless the call also carries `allow_clear_sections: true`, naming every section it would have emptied. Omit a section to leave it alone; set the flag only when the traveler asked you to erase something. The creates have no flag, because an empty section on a first write clears nothing.
 
 Omitting the whole `sections` argument is different again: `create_profile`, `update_profile` and `create_trip` reject a call without it, even though the published schema does not mark it required. Only `update_trip` defaults it, which is what makes an envelope-only status flip a one-argument call.
 
@@ -88,7 +88,13 @@ Note that `food_dining` carries its previous sentence forward. Nothing else was 
 list_trips  ->  pick trip_id  ->  read_trip  ->  update_trip with expected_version_hash
 ```
 
-Find a trip by name with `list_trips { query: "japan" }` (case-insensitive substring match on the title) rather than paging the whole collection. Filter by `status` when the user is specific ("my booked trips").
+Find the trip in one call rather than paging the whole collection:
+
+- `list_trips { query: "japan" }` matches case-insensitively against the title **and** the section content, so `query: "ryokan"` finds the trip that mentions one in its `accommodation` even when the title does not. Each hit carries `matched_sections` naming where the phrase was found.
+- `status` narrows to a stage when the user is specific ("my booked trips").
+- `starts_after` / `starts_before` are inclusive `YYYY-MM-DD` bounds on the start date, and `sort: "start_date"` orders by soonest departure. "What is my next trip" is `sort: "start_date"` plus `starts_after` set to today plus `limit: 1`.
+
+Keep paging while `next_cursor` is present even if `items` came back empty: an empty page with a cursor means "nothing on this page", not "no results". Do not carry a cursor across a change of `sort`; that returns `invalid cursor`.
 
 `create_trip` requires `title` and `status`, because the trip envelope cannot be derived from section content. `status` is one of exactly: `Dreaming`, `Planning`, `Booking`, `Booked`, `Trip In Progress`, `Completed`, `Cancelled`, `On Hold`. Match the traveler's actual stage; a trip they are only fantasising about is `Dreaming`, not `Planning`.
 
@@ -102,25 +108,27 @@ Every `update_*` response includes a `changes` object (`added`, `updated`, `remo
 
 ## Recovering from errors
 
-| Code                                  | Meaning                                                                                  | What to do                                                                                                                                         |
-| ------------------------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CONFLICT` with a hash in the message | Your `expected_version_hash` is stale, or you called `create_*` on something that exists | Retry with the hash from the message, or re-read first if you need to see the current content before overwriting. Never blind-retry the same hash. |
-| `CONFLICT` with no hash               | Slug collision on a trip                                                                 | Retry with a different `slug` or `title`. A hash cannot help.                                                                                      |
-| `VALIDATION_ERROR`                    | Bad section name, over a sentence cap, malformed date or cursor                          | Read `issues[]`, fix the argument, retry once. Do not retry unchanged.                                                                             |
-| `FORBIDDEN`                           | The token lacks the scope, or the traveler withheld a section                            | Tell the user which capability is missing and stop. Retrying cannot grant a scope.                                                                 |
-| `NOT_FOUND`                           | Unknown or archived `trip_id`                                                            | Re-list. Archived trips are invisible to `list_trips` and 404 on read and update.                                                                  |
-| `UNAUTHORIZED`                        | No valid authorization                                                                   | Ask the user to authorize once, then stop. Do not loop on retries or refreshes.                                                                    |
-| `INTERNAL`                            | Server-side fault                                                                        | Retry at most once. If it persists, report it rather than working around it.                                                                       |
+| Code                                  | Meaning                                                                                                    | What to do                                                                                                                                                                                                         |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `CONFLICT` with a hash in the message | Your `expected_version_hash` is stale, or you called `create_*` on something that exists                   | Something else wrote to the record. Re-read and merge before resending the same sections; retry straight away with the hash from the message only when your write cannot collide. Never blind-retry the same hash. |
+| `CONFLICT` with no hash               | Slug collision on a trip                                                                                   | Retry with a different `slug` or `title`. A hash cannot help.                                                                                                                                                      |
+| `VALIDATION_ERROR`                    | Bad section name, over a sentence cap, malformed date or cursor, or an `[]` without `allow_clear_sections` | The message names the offending fields. Fix them, retry once. Do not retry unchanged.                                                                                                                              |
+| `FORBIDDEN`                           | The token lacks the scope, or the traveler withheld a section                                              | Tell the user which capability is missing and stop. Retrying cannot grant a scope.                                                                                                                                 |
+| `NOT_FOUND`                           | Unknown or archived `trip_id`                                                                              | Re-list. Archived trips are invisible to `list_trips` and 404 on read and update.                                                                                                                                  |
+| `UNAUTHORIZED`                        | No valid authorization                                                                                     | Ask the user to authorize once, then stop. Do not loop on retries or refreshes.                                                                                                                                    |
+| `INTERNAL`                            | Server-side fault                                                                                          | Retry at most once. If it persists, report it rather than working around it.                                                                                                                                       |
 
 Detail and exact messages: [references/errors.md](references/errors.md).
 
 ## Retries and idempotency
 
-Every write accepts an optional `idempotency_key`. Set one when a write is expensive to repeat or when you may not see the response (network timeout), so a retry with the same key returns the original result instead of writing twice. A retry with the same key but different arguments is rejected as `IDEMPOTENCY_MISMATCH`.
+Every write accepts an optional `idempotency_key`: any unique string of 1 to 255 characters, no particular format, valid for an hour. Set one when a write is expensive to repeat or when you may not see the response (network timeout), so a retry with the same key returns the original result instead of writing twice. A retry with the same key but different arguments is rejected as `IDEMPOTENCY_MISMATCH`.
 
 ## Two things to keep small
 
 `include_markdown` defaults to `false` and should stay false unless you are about to show the traveler their rendered document. The rendered form can reach 1 MiB, and the `sections` you get by default are already in exactly the shape the write tools accept, so a read/edit/write loop needs no markdown and no reshaping.
+
+`read_profile` takes a `sections` filter, so a question that turns on one or two sections need not carry all twenty. It narrows the response only: `version_hash` still covers the whole document, so a filtered read is a safe basis for an `update_profile` that names other sections.
 
 Keep write bodies modest. Send the sections you are changing, not the whole document read back verbatim.
 
