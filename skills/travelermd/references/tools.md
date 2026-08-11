@@ -15,7 +15,8 @@ Eight tools. Every argument name is `snake_case`. Unknown top-level argument nam
 | `sections`                              | Object of `section_name -> string[]`. Only spec section names.                                                      |
 | `cursor`                                | Opaque signed string from `next_cursor`. Never construct or edit one.                                               |
 | `include_markdown`                      | Optional boolean, defaults to `false` on every read and write                                                       |
-| `idempotency_key`                       | Optional string, your own value, for safe retries                                                                   |
+| `idempotency_key`                       | Optional string, any unique value of 1 to 255 characters. It need not be a UUID; a short random token is fine.      |
+| `allow_clear_sections`                  | Optional boolean on the two update tools, defaults to `false`. Required to send any section as `[]`.                |
 
 `spec_version` and `renderer_version` come back on every read and write. They tell you which document spec produced the response; you do not send them.
 
@@ -27,14 +28,32 @@ This is a server-side defect, not a design decision, and it is tracked. When it 
 
 `update_trip` is the exception and genuinely optional: it defaults `sections` to `{}`, which is what makes an envelope-only status flip a one-argument call.
 
+## Clearing a section takes `allow_clear_sections`
+
+A section you send is replaced wholesale, so `{"loyalty_programs": []}` erases it, and there is no delete tool and no undo on this server. An update that sends any section as an empty array is therefore **rejected** unless it also carries `allow_clear_sections: true`. The rejection is a `VALIDATION_ERROR` that names every section the call would have emptied.
+
+- To leave a section alone, **omit it**. Omitted sections are untouched and need no flag.
+- To erase deliberately, resend with `allow_clear_sections: true`.
+- Never set the flag pre-emptively "in case". It exists so that an accidental `[]`, from a failed extraction or a mis-serialised argument, cannot destroy content silently.
+
+`create_profile` and `create_trip` have no such flag, because on a first write an empty section clears nothing.
+
 ## read_profile
 
 Scope `profile.read`.
 
-- **In:** `include_markdown?`
+- **In:** `sections?` (array of section names, at least one), `include_markdown?`
 - **Out:** `sections`, `version_hash` (**nullable**), `spec_version`, `renderer_version`, `rendered_markdown?`
 
 `version_hash: null` means no profile exists yet. That is the signal to use `create_profile`.
+
+`sections` on the way in is a projection: pass the names you need and the response carries only those. The enum of valid names is in the input schema, so an unknown name is rejected and the message names the allowed set.
+
+Three things the projection does not change:
+
+1. `version_hash` still covers the whole document. It is the version row's hash, not a hash of what you fetched, so a filtered read followed by an `update_profile` carrying that hash is safe. Sections you did not fetch are not disturbed by a write that does not name them.
+2. `rendered_markdown`, when you ask for it, is always the complete document.
+3. A section the traveler has withheld from this client stays absent whether or not you name it.
 
 ## create_profile
 
@@ -49,19 +68,36 @@ If a profile already exists this returns `CONFLICT` and the message names the cu
 
 Scope `profile.update`.
 
-- **In:** `sections` (required), `expected_version_hash` (required, non-null), `idempotency_key?`, `include_markdown?`
+- **In:** `sections` (required), `expected_version_hash` (required, non-null), `allow_clear_sections?`, `idempotency_key?`, `include_markdown?`
 - **Out:** as `create_profile`, plus `changes?`
 
 ## list_trips
 
 Scope `trip.list`. Archived trips never appear.
 
-- **In:** `cursor?`, `limit?` (1 to 100, default 20), `status?`, `query?` (case-insensitive substring match on title; `%` and `_` are matched literally)
+- **In:** `cursor?`, `limit?` (1 to 100, default 20), `status?`, `query?`, `starts_after?`, `starts_before?`, `sort?`
 - **Out:** `items[]`, `next_cursor` (nullable, null on the last page)
 
-Each item: `trip_id`, `slug`, `title`, `status`, `start_date`, `end_date`, `updated_at`, `card_color?`. Items carry no section content; use `read_trip` for that.
+Each item: `trip_id`, `slug`, `title`, `status`, `start_date`, `end_date`, `updated_at`, `card_color?`, `matched_sections?`. Items carry no section content; use `read_trip` for that.
 
-Cursors are signed. A hand-built or edited cursor returns `VALIDATION_ERROR: invalid cursor`.
+Filters and ordering:
+
+| Argument                        | Behaviour                                                                                                                                                                            |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `query`                         | Case-insensitive substring searched across both the title **and** the trip's section content. `%` and `_` are matched literally.                                                     |
+| `starts_after`, `starts_before` | Inclusive `YYYY-MM-DD` bounds on `start_date`. Either one excludes trips that have no start date.                                                                                    |
+| `sort`                          | `recently_updated` (default, most recently edited first) or `start_date` (soonest departure first, undated trips last).                                                              |
+| `matched_sections`              | On a hit, the section names the `query` was found in. Absent when only the title matched, when there was no `query`, and for any matched section this client is not allowed to read. |
+
+`matched_sections` carries section names only, never the matching text. Read the content with `read_trip`.
+
+"What is my next trip" is one call: `sort: "start_date"`, `starts_after` set to today, `limit: 1`.
+
+### Paging
+
+**Keep paging while `next_cursor` is present, even when `items` is empty.** A page is filtered after it is read, so an empty `items` alongside a `next_cursor` means "nothing on this page", never "no results". Only a response without a `next_cursor` ends the search.
+
+Cursors are signed. A hand-built or edited cursor returns `VALIDATION_ERROR: invalid cursor`, and so does a cursor carried across a change of `sort`: the two orderings use different cursor formats, and a boundary from one has no meaning in the other. Changing `sort` means restarting from no cursor.
 
 ## read_trip
 
@@ -85,10 +121,12 @@ Scope `trip.create`.
 
 Scope `trip.update`.
 
-- **In:** `trip_id` (required), `expected_version_hash` (required, non-null), `sections?` (defaults to `{}`), `title?`, `slug?`, `status?`, `start_date?`, `end_date?`, `idempotency_key?`, `include_markdown?`
+- **In:** `trip_id` (required), `expected_version_hash` (required, non-null), `sections?` (defaults to `{}`), `title?`, `slug?`, `status?`, `start_date?`, `end_date?`, `allow_clear_sections?`, `idempotency_key?`, `include_markdown?`
 - **Out:** as `create_trip`, plus `changes?`
 
 Envelope fields and sections can change in the same call. An envelope-only change (a status flip) needs no `sections`.
+
+`expected_version_hash` can come from a prior `read_trip`, `create_trip` or `update_trip`: every write response carries the new hash, so a chain of updates needs no re-read between them.
 
 ## archive_trip
 
