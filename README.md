@@ -34,11 +34,13 @@ here is repo tooling and is invisible to the clients that install this package.
 
 Connecting an agent to the MCP server is one line of configuration. Getting it to use the surface _well_ is the harder half, and the failure modes are consistent:
 
-- Writing without a fresh `expected_version_hash`, then blind-retrying the same stale hash on the resulting conflict.
+- Writing without a fresh `expected_version_hash`, then blind-retrying the same stale hash on the resulting conflict, which overwrites whatever the other writer put in those sections.
 - Sending only a new sentence for a section, which deletes everything else in it.
+- Sending a section as `[]`, which erases it. The server refuses this without an explicit `allow_clear_sections`, and the skill says why the flag is not something to set pre-emptively.
 - Exceeding a per-section sentence cap.
 - Writing trip specifics into the durable profile, which pollutes every later trip.
 - Omitting `sections` on a create or profile update, which the published schema does not mark required but the server rejects anyway.
+- Reading an empty `list_trips` page that still carries a `next_cursor` as "no such trip", when it means "nothing on this page".
 
 The skill front-loads each of those. Shipping it in the same package as the server config means an agent arrives already knowing them, instead of learning by failing against a real traveler's data.
 
