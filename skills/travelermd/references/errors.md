@@ -1,6 +1,6 @@
 # Error reference
 
-Every tool rejection arrives as an MCP tool error carrying one of the codes below. The code set is closed: anything unexpected is `INTERNAL`.
+Every tool rejection arrives as an MCP tool error carrying one of the codes below. The code set is closed: anything unexpected is `INTERNAL`. One rejection is different in kind and never reaches the tool at all: see `RATE_LIMITED`.
 
 The recovery instruction is in the **message**. Read it. The structured `data` envelope is not delivered to MCP clients on the tool path, so the message is where every actionable detail lives: the current version hash on a conflict, and the offending field paths on a validation error.
 
@@ -73,6 +73,12 @@ Recovery: re-run `list_trips` and work from ids it returns. If the traveler insi
 No valid authorization, or the traveler revoked the grant.
 
 Recovery: ask the traveler to authorize the connection once, then stop. **Do not loop.** Repeated automatic retries and token refreshes against a dead grant produce nothing but failed requests. One clear message to the user is the correct response.
+
+## RATE_LIMITED
+
+Too many calls in a short window. This one is not a tool error: the server rejects the request at the transport layer, with HTTP 429 and the code `RATE_LIMITED`, so the tool never ran and nothing was written. Your client may surface it as a transport failure rather than as a tool result.
+
+Recovery: back off for the number of seconds in the `retry-after` header, then retry once. Do not retry immediately, and do not fan out the retries you were about to make. A write that was rejected here did not happen, so a retry is safe once the window has passed.
 
 ## IDEMPOTENCY_MISMATCH and IDEMPOTENCY_IN_PROGRESS
 
