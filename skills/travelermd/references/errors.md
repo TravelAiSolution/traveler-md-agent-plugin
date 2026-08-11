@@ -2,7 +2,9 @@
 
 Every tool rejection arrives as an MCP tool error carrying one of the codes below. The code set is closed: anything unexpected is `INTERNAL`.
 
-The recovery instruction is in the **message**. Read it. For historical reasons the structured `data` envelope is not delivered to MCP clients on the tool path, so the message is where the actionable detail lives, including the current version hash on a conflict.
+The recovery instruction is in the **message**. Read it. The structured `data` envelope is not delivered to MCP clients on the tool path, so the message is where every actionable detail lives: the current version hash on a conflict, and the offending field paths on a validation error.
+
+The message may arrive prefixed with a JSON-RPC code, as in `MCP error -32602: validation error ...`. That number is transport bookkeeping and not the code set below. Do not branch on it, and do not report it to the traveler; read the text after it.
 
 ## CONFLICT
 
@@ -10,7 +12,7 @@ Two distinct situations, told apart by whether the message contains a hash.
 
 ### Version-hash mismatch
 
-Message: `version_hash mismatch: the stored version_hash is <hash>, not the expected_version_hash you sent. Retry with expected_version_hash set to <hash> to apply your change to the current record, or re-read the record first if you need to see its current content before overwriting it.`
+Message: `version_hash mismatch: the stored version_hash is <hash>, not the expected_version_hash you sent, so something else wrote to this record (or it already existed). Re-read it before retrying if you are about to send the same sections again: each section is replaced wholesale, so retrying with expected_version_hash set to <hash> would overwrite the other writer's version of every section in your payload. Retry directly with <hash> only when your change cannot collide with theirs, or when you mean to replace those sections regardless.`
 
 Causes:
 
@@ -18,7 +20,10 @@ Causes:
 - You reused a hash from an earlier turn or an earlier session.
 - You called `create_profile` when a profile already existed. Nothing changed in that case; the record simply exists. Switch to `update_profile`.
 
-Recovery: take the hash from the message. If your write is purely additive to sections you already hold, retry with that hash. If another writer may have changed the same sections you are about to replace, re-read first, merge, then write. Wholesale section replacement means a blind retry can overwrite someone else's sentences.
+Recovery, in this order:
+
+1. **Re-read** if you are about to resend the same sections. This mismatch is the only notice you ever get that another writer exists, and because a section is replaced wholesale, retrying the same body against the new hash discards whatever they wrote into those sections. Re-read, merge their sentences with yours, then write.
+2. Retry directly with the hash from the message only when your write cannot collide (it names sections nothing else touches), or when replacing them regardless is what the traveler asked for.
 
 Never retry with the same hash that just failed.
 
@@ -30,21 +35,25 @@ Recovery: retry with a different `slug`, or a different `title` if you let the s
 
 ## VALIDATION_ERROR
 
-Your arguments did not satisfy the schema. The `issues[]` array carries `path` and `message` per problem.
+Your arguments did not satisfy the schema. The offending fields are rendered into the message, as `validation error — <field>: <reason>; <field>: <reason>`, where a field is the argument path (`sections.itinerary`, `start_date`, or `input` when the whole argument object is wrong). At most five are named; the rest are counted as `(and N more field errors)`, and a very long list is truncated. Fix the ones you are told about and retry; the remainder surface on the next attempt.
 
 Common causes and fixes:
 
-| Cause                           | Message shape                                                                      | Fix                                                                                   |
-| ------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Over a sentence cap             | `section "<name>" accepts at most N sentences; send fewer, more concise sentences` | Consolidate into denser sentences. Do not silently drop content.                      |
-| Unknown section name            | Unrecognized key                                                                   | Use a spec section name. Anything that fits nowhere goes in `additional_information`. |
-| Sentence too long or multi-line | Sentence length or forbidden-character message                                     | Split into multiple sentences, each under 1000 characters, no newlines.               |
-| Bad date                        | `must be an ISO-8601 date (YYYY-MM-DD)`                                            | Reformat.                                                                             |
-| Bad slug                        | `must be a kebab-case slug`                                                        | Lowercase, hyphens, alphanumeric at both ends.                                        |
-| Tampered or hand-built cursor   | `invalid cursor`                                                                   | Restart pagination from no cursor. Only ever pass back a `next_cursor` verbatim.      |
-| Malformed hash                  | 64-character lowercase hex message                                                 | Pass the hash back exactly as read.                                                   |
+| Cause                                    | Message shape                                                                      | Fix                                                                                                         |
+| ---------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Section sent as `[]` without the flag    | `refusing to clear <names>: ...`                                                   | Omit the section to leave it alone, or resend with `allow_clear_sections: true` to erase it.                |
+| Over a sentence cap                      | `section "<name>" accepts at most N sentences; send fewer, more concise sentences` | Consolidate into denser sentences. Do not silently drop content.                                            |
+| Unknown section name                     | Unrecognized key                                                                   | Use a spec section name. Anything that fits nowhere goes in `additional_information`.                       |
+| Unknown name in `read_profile.sections`  | Invalid enum value, listing the allowed set                                        | Use a spec profile section name.                                                                            |
+| Sentence too long or multi-line          | Sentence length or forbidden-character message                                     | Split into multiple sentences, each under 1000 characters, no newlines.                                     |
+| Bad date                                 | `must be an ISO-8601 date (YYYY-MM-DD)`                                            | Reformat.                                                                                                   |
+| Bad slug                                 | `must be a kebab-case slug`                                                        | Lowercase, hyphens, alphanumeric at both ends.                                                              |
+| Tampered, hand-built or re-sorted cursor | `invalid cursor`                                                                   | Restart pagination from no cursor. Pass a `next_cursor` back verbatim, and never across a change of `sort`. |
+| Malformed hash                           | 64-character lowercase hex message                                                 | Pass the hash back exactly as read.                                                                         |
 
 Fix the argument and retry once. An unchanged retry will fail identically.
+
+Cross-field refusals, of which the clear-sections guard is the only one today, are reported ahead of ordinary field errors so they cannot be pushed past the five-issue cap.
 
 ## FORBIDDEN
 
