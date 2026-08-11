@@ -9,6 +9,6 @@
   },
   "homepage": "https://docs.traveler.md/mcp",
   "repository": "https://github.com/TravelAiSolution/traveler-md-agent-plugin",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "keywords": ["travel", "traveler-md", "trip-planning", "mcp", "personalization"]
 }

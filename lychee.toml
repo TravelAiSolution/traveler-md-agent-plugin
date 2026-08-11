@@ -9,7 +9,7 @@ exclude_path = [
   # identifiers, and one of them is fetched by the workflow anyway.
   'scripts/schemas',
   'pnpm-lock.yaml',
-  # Apache-2.0 boilerplate, not our prose.
+  # MIT license text, not our prose.
   'LICENSE',
 ]
 
