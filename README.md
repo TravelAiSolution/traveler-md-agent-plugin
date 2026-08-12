@@ -54,6 +54,23 @@ This path gives the agent the tools without the skill, which is the difference t
 
 There are no credentials to configure on either path. The package names the endpoint and nothing else: the traveler authorizes once through OAuth in their browser, and the client discovers the authorization server from the endpoint's [protected-resource metadata](https://datatracker.ietf.org/doc/html/rfc9728).
 
+### One rule worth adding by hand
+
+Connecting the server makes the tools available. It does not make an agent reach for them, and the turn where that matters most is the one where it feels least necessary: asked "where should we stay in Lisbon", a model will happily answer from the conversation, never look at its tool list, and never read the profile the traveler filled in for exactly that question.
+
+If your client reads a project or global instruction file, paste this into it. It costs four lines and it is the difference between a profile that gets used and one that gets written and forgotten.
+
+```markdown
+## Travel
+
+Before recommending, shortlisting, planning or booking anything travel-related, read my
+traveler.md profile with `read_profile`, and check `list_trips` for an existing trip
+before starting a new one. Record lasting preferences with `update_profile` and
+trip-specific detail with `update_trip`.
+```
+
+The file to put it in depends on the client: `CLAUDE.md` for Claude Code, `AGENTS.md` for Codex and others that follow that convention, a project rule for Cursor. Clients that read Agent Skills pick this up from the skill instead and need no manual step.
+
 ## What is in the package
 
 ```text
@@ -62,7 +79,7 @@ There are no credentials to configure on either path. The package names the endp
 ├── mcp.json                          # One streamable-http server: mcp.traveler.md
 ├── skills/
 │   └── travelermd/
-│       ├── SKILL.md                  # The read-before-write loop, the five rules
+│       ├── SKILL.md                  # Read before you advise, the read-before-write loop, the five rules
 │       └── references/
 │           ├── tools.md              # All 8 tools, exact argument and response shapes
 │           ├── profile-sections.md   # traveler.md sections, caps, profile-vs-trip
