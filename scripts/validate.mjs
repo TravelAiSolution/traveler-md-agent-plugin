@@ -330,6 +330,21 @@ if (!existsSync(skillsDir)) {
       } else {
         fail(`skills/${child.name} metadata is a string map`, 'values must all be strings');
       }
+
+      // Two places state a version, and hosts use plugin.json's for update
+      // checks and cache freshness. A skill that reports an older one is the
+      // kind of drift nobody notices until a traveler asks which version they
+      // are on.
+      if (fm.metadata.version !== undefined) {
+        if (fm.metadata.version === manifest?.version) {
+          pass(`skills/${child.name} metadata.version matches plugin.json`);
+        } else {
+          fail(
+            `skills/${child.name} metadata.version matches plugin.json`,
+            `"${fm.metadata.version}" vs "${manifest?.version}"`,
+          );
+        }
+      }
     }
 
     // Every relative markdown link in the skill must resolve to a real file.
@@ -355,7 +370,315 @@ if (!existsSync(skillsDir)) {
   }
 }
 
-// --- 4. Path containment (spec 4.1) ---------------------------------------
+// --- 4. Codex / OpenAI host compatibility ---------------------------------
+//
+// Codex loads THIS package directly: it looks for an Agent Plugins manifest at
+// the plugin root first, and a root plugin.json whose $schema is the 1.0.0
+// plugin schema is loaded as PluginManifestFormat::AgentPlugin. In that mode the
+// host hardcodes `skills` to ./skills and `mcpServers` to ./mcp.json, so no
+// .codex-plugin/plugin.json, .mcp.json or `skills` field is needed.
+//
+// What it does NOT infer is the install-surface metadata: without an override it
+// synthesises displayName from `name`, category "Other" and shortDescription
+// from the full `description`. That override is the one thing worth carrying,
+// and it belongs under extensions["com.openai"], which the closed 1.0.0 schema
+// permits and every other conforming client ignores. Codex reads exactly three
+// fields from it and gives it precedence over a .codex-plugin/plugin.json file,
+// which is why this package keeps a single manifest.
+//
+// Every rule below is taken from the host implementation rather than the docs
+// page, because the two diverge. Anything the host silently drops is a failure
+// here: a warning in someone else's log is not a signal we ever see.
+
+const CODEX_NS = 'com.openai';
+const CODEX_EXTENSION_FIELDS = new Set(['interface', 'apps', 'hooks']);
+const CODEX_INTERFACE_FIELDS = new Set([
+  'displayName',
+  'shortDescription',
+  'longDescription',
+  'developerName',
+  'category',
+  'capabilities',
+  'websiteURL',
+  'privacyPolicyURL',
+  'termsOfServiceURL',
+  'defaultPrompt',
+  'brandColor',
+  'composerIcon',
+  'logo',
+  'logoDark',
+  'screenshots',
+]);
+const CODEX_INTERFACE_TEXT = [
+  'displayName',
+  'shortDescription',
+  'longDescription',
+  'developerName',
+  'category',
+];
+const CODEX_INTERFACE_URLS = ['websiteURL', 'privacyPolicyURL', 'termsOfServiceURL'];
+const CODEX_ASSET_FIELDS = ['composerIcon', 'logo', 'logoDark'];
+// MAX_DEFAULT_PROMPT_COUNT and MAX_DEFAULT_PROMPT_LEN in the host's manifest
+// parser. Over either limit the extra prompts are dropped, not reported.
+const MAX_DEFAULT_PROMPTS = 3;
+const MAX_DEFAULT_PROMPT_LEN = 128;
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
+// The host resolves every manifest-declared path through one rule: non-empty,
+// `./`-prefixed, no `..` component. A path it rejects is dropped silently, so
+// the listing renders without the asset and nothing says why.
+function checkAssetPath(field, value) {
+  if (typeof value !== 'string' || value.length === 0) {
+    fail(`${field} is a non-empty string`, String(value));
+    return;
+  }
+  if (!value.startsWith('./')) {
+    fail(`${field} starts with "./"`, value);
+    return;
+  }
+  if (value.split('/').includes('..')) {
+    fail(`${field} has no ".." component`, value);
+    return;
+  }
+  if (!existsSync(join(ROOT, value.slice(2)))) {
+    fail(`${field} resolves to a file that exists`, value);
+    return;
+  }
+  pass(`${field} resolves to a file that exists`, value);
+}
+
+function checkDefaultPrompt(prompts) {
+  const list = typeof prompts === 'string' ? [prompts] : prompts;
+  if (!Array.isArray(list)) {
+    fail('interface.defaultPrompt is a string or an array', typeof prompts);
+    return;
+  }
+  if (list.length <= MAX_DEFAULT_PROMPTS) {
+    pass(`interface.defaultPrompt has at most ${MAX_DEFAULT_PROMPTS} entries`, `${list.length}`);
+  } else {
+    fail(
+      `interface.defaultPrompt has at most ${MAX_DEFAULT_PROMPTS} entries`,
+      `${list.length}; the host drops the rest`,
+    );
+  }
+  const bad = list.filter(
+    (p) => typeof p !== 'string' || p.trim().length === 0 || p.length > MAX_DEFAULT_PROMPT_LEN,
+  );
+  if (bad.length === 0) {
+    pass(`interface.defaultPrompt entries are 1-${MAX_DEFAULT_PROMPT_LEN} chars`);
+  } else {
+    fail(`interface.defaultPrompt entries are 1-${MAX_DEFAULT_PROMPT_LEN} chars`, bad.join(' | '));
+  }
+}
+
+function checkCodexInterface(iface) {
+  const unknown = Object.keys(iface).filter((k) => !CODEX_INTERFACE_FIELDS.has(k));
+  if (unknown.length === 0) {
+    pass('interface has no fields the host would ignore');
+  } else {
+    fail('interface has no fields the host would ignore', unknown.join(', '));
+  }
+
+  for (const field of CODEX_INTERFACE_TEXT) {
+    if (iface[field] === undefined) continue;
+    const ok = typeof iface[field] === 'string' && iface[field].trim().length > 0;
+    if (ok) {
+      pass(`interface.${field} is a non-empty string`);
+    } else {
+      fail(`interface.${field} is a non-empty string`, String(iface[field]));
+    }
+  }
+
+  if (iface.capabilities !== undefined) {
+    const ok =
+      Array.isArray(iface.capabilities) &&
+      iface.capabilities.every((c) => typeof c === 'string' && c.length > 0);
+    if (ok) {
+      pass('interface.capabilities is an array of non-empty strings');
+    } else {
+      fail('interface.capabilities is an array of non-empty strings', String(iface.capabilities));
+    }
+  }
+
+  for (const field of CODEX_INTERFACE_URLS) {
+    if (iface[field] === undefined) continue;
+    let url;
+    try {
+      url = new URL(iface[field]);
+    } catch {
+      fail(`interface.${field} parses as a URL`, String(iface[field]));
+      continue;
+    }
+    if (url.protocol === 'https:') {
+      pass(`interface.${field} uses HTTPS`);
+    } else {
+      fail(`interface.${field} uses HTTPS`, url.protocol);
+    }
+  }
+
+  if (iface.defaultPrompt !== undefined) checkDefaultPrompt(iface.defaultPrompt);
+
+  if (iface.brandColor !== undefined) {
+    if (HEX_COLOR.test(iface.brandColor)) {
+      pass('interface.brandColor is a 6-digit hex colour');
+    } else {
+      fail('interface.brandColor is a 6-digit hex colour', String(iface.brandColor));
+    }
+  }
+
+  for (const field of CODEX_ASSET_FIELDS) {
+    if (iface[field] !== undefined) checkAssetPath(`interface.${field}`, iface[field]);
+  }
+
+  if (iface.screenshots !== undefined) {
+    if (!Array.isArray(iface.screenshots)) {
+      fail('interface.screenshots is an array', typeof iface.screenshots);
+    } else {
+      iface.screenshots.forEach((s, i) => checkAssetPath(`interface.screenshots[${i}]`, s));
+    }
+  }
+}
+
+if (manifest) {
+  const extension = manifest.extensions?.[CODEX_NS];
+  if (extension === undefined) {
+    pass(
+      `no ${CODEX_NS} extension`,
+      'allowed; the host would synthesise displayName, category "Other" and a listing built from `description`',
+    );
+  } else {
+    const unknown = Object.keys(extension).filter((k) => !CODEX_EXTENSION_FIELDS.has(k));
+    if (unknown.length === 0) {
+      pass(`${CODEX_NS} extension declares only fields the host reads`);
+    } else {
+      fail(`${CODEX_NS} extension declares only fields the host reads`, unknown.join(', '));
+    }
+
+    if (extension.interface === undefined) {
+      pass(`${CODEX_NS} extension has no interface block`);
+    } else if (typeof extension.interface !== 'object' || Array.isArray(extension.interface)) {
+      fail(`${CODEX_NS} interface is an object`, typeof extension.interface);
+    } else {
+      checkCodexInterface(extension.interface);
+    }
+  }
+}
+
+// The host resolves the root manifest through symlink_metadata and gives up
+// entirely if plugin.json is a symlink, so the plugin does not load at all. The
+// same check on mcp.json disables MCP and keeps the skills, which is the quieter
+// and therefore worse failure: the agent arrives knowing how to use tools it
+// does not have.
+for (const file of ['plugin.json', 'mcp.json']) {
+  const path = join(ROOT, file);
+  if (!existsSync(path)) continue;
+  if (lstatSync(path).isSymbolicLink()) {
+    fail(`${file} is a regular file, not a symlink`, 'the host refuses to follow it');
+  } else {
+    pass(`${file} is a regular file, not a symlink`);
+  }
+}
+
+// In Agent Plugins mode the host discovers skills as DIRECT children of skills/
+// only, where the legacy format recursed. A skill nested any deeper is skipped
+// without comment.
+if (existsSync(skillsDir) && lstatSync(skillsDir).isDirectory()) {
+  const nested = walk(skillsDir)
+    .filter((f) => f.endsWith(`${sep}SKILL.md`))
+    .filter((f) => relative(skillsDir, f).split(sep).length !== 2);
+  if (nested.length === 0) {
+    pass('every SKILL.md is a direct child of skills/<name>/');
+  } else {
+    fail(
+      'every SKILL.md is a direct child of skills/<name>/',
+      nested.map((f) => relative(ROOT, f)).join(', '),
+    );
+  }
+}
+
+// --- 5. Marketplace entry (optional) --------------------------------------
+//
+// Present so the repository can be installed by pointing a host at its Git URL
+// rather than by cloning by hand. The enum values below are the host's, not the
+// docs page's: the documented `ON_FIRST_USE` is not one of them, and an
+// unrecognised value fails deserialisation of the WHOLE file, taking the
+// marketplace with it.
+
+const MARKETPLACE = '.agents/plugins/marketplace.json';
+const INSTALL_POLICIES = new Set(['AVAILABLE', 'INSTALLED_BY_DEFAULT', 'NOT_AVAILABLE']);
+const AUTH_POLICIES = new Set(['ON_INSTALL', 'ON_USE']);
+
+if (!existsSync(join(ROOT, MARKETPLACE))) {
+  pass(`${MARKETPLACE} absent`, 'optional; hosts can also install from a local path');
+} else {
+  let market;
+  try {
+    market = readJson(MARKETPLACE);
+    pass(`${MARKETPLACE} parses as JSON`);
+  } catch (err) {
+    fail(`${MARKETPLACE} parses as JSON`, err.message);
+  }
+
+  if (market) {
+    const named = typeof market.name === 'string' && market.name.length > 0;
+    if (named) {
+      pass(`${MARKETPLACE} has a name`);
+    } else {
+      fail(`${MARKETPLACE} has a name`, 'required by the host');
+    }
+
+    const entries = Array.isArray(market.plugins) ? market.plugins : [];
+    if (entries.length > 0) {
+      pass(`${MARKETPLACE} lists ${entries.length} plugin(s)`);
+    } else {
+      fail(`${MARKETPLACE} lists at least one plugin`, 'plugins must be a non-empty array');
+    }
+
+    for (const [i, entry] of entries.entries()) {
+      const at = `${MARKETPLACE} plugins[${i}]`;
+
+      // A name that does not match the manifest installs the plugin under a
+      // namespace nothing else in this repo refers to.
+      if (entry.name === manifest?.name) {
+        pass(`${at} name matches plugin.json`);
+      } else {
+        fail(`${at} name matches plugin.json`, `"${entry.name}" vs "${manifest?.name}"`);
+      }
+
+      const policy = entry.policy ?? {};
+      for (const [field, allowed] of [
+        ['installation', INSTALL_POLICIES],
+        ['authentication', AUTH_POLICIES],
+      ]) {
+        if (policy[field] === undefined) continue;
+        if (allowed.has(policy[field])) {
+          pass(`${at} policy.${field} is a value the host accepts`);
+        } else {
+          fail(
+            `${at} policy.${field} is a value the host accepts`,
+            `"${policy[field]}"; expected one of ${[...allowed].join(', ')}`,
+          );
+        }
+      }
+
+      const source = entry.source ?? {};
+      if (source.source === 'local') {
+        const path = source.path;
+        const selfRooted = path === './' || path === '.';
+        const contained =
+          typeof path === 'string' &&
+          (selfRooted || (path.startsWith('./') && !path.split('/').includes('..')));
+        if (contained) {
+          pass(`${at} local source path stays inside the marketplace root`, path);
+        } else {
+          fail(`${at} local source path stays inside the marketplace root`, String(path));
+        }
+      }
+    }
+  }
+}
+
+// --- 6. Path containment (spec 4.1) ---------------------------------------
 
 let escapes = 0;
 for (const file of walk(ROOT)) {
