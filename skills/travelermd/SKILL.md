@@ -1,6 +1,6 @@
 ---
 name: travelermd
-description: Read and write a traveler's portable travel profile (traveler.md) and their trip plans (trip.md) through the traveler.md MCP server. Use before recommending, planning, shortlisting, or booking anything travel-related (flights, hotels, destinations, restaurants, itineraries) so the answer is grounded in the preferences and constraints the traveler already wrote down instead of asking again, and whenever they ask to remember, recall, or change a travel preference, or to create, find, update, or archive a trip. Also use for questions about their own trips, such as what is booked, where they are staying, or when they next travel. Covers the read-before-write version-hash loop, the section model and its sentence caps, and how to recover from each error the server returns.
+description: Use whenever a conversation touches the user's own travel. Before recommending, planning, shortlisting or booking anything travel-related (flights, hotels, destinations, restaurants, activities, itineraries), so the answer is grounded in the preferences and constraints they already wrote down instead of asking them again. When they ask about their own trips, such as what is booked, where they are staying, what the plan is, or when they next travel. And when they want a travel preference or a trip remembered, recorded, changed, found or archived. Reads and writes the traveler's portable profile (traveler.md) and their trip plans (trip.md) through the traveler.md MCP server, and covers the read-before-write version-hash loop, the section model and its sentence caps, and how to recover from each error the server returns.
 license: MIT
 compatibility: Requires network access and a one-time OAuth authorization to https://mcp.traveler.md/mcp
 metadata:
@@ -9,6 +9,23 @@ metadata:
 ---
 
 # Working with traveler.md and trip.md
+
+## When this applies
+
+Any turn about the user's own travel, including the ones that do not sound like a request to touch a file:
+
+| They say                                           | Do this first                    |
+| -------------------------------------------------- | -------------------------------- |
+| "Where should we stay in Lisbon?"                  | `read_profile`                   |
+| "Find me a flight to Denver on the 14th"           | `read_profile`                   |
+| "Any restaurant ideas for Tokyo?"                  | `read_profile`                   |
+| "What's my next trip?" / "What have I got booked?" | `list_trips`                     |
+| "What's the plan for Kyoto?"                       | `list_trips`, then `read_trip`   |
+| "I'd love to see Patagonia one day"                | `create_trip`, status `Dreaming` |
+| "I always want an aisle seat"                      | `update_profile`                 |
+| "We booked the ryokan"                             | `update_trip`                    |
+
+The first three are the ones most often missed, because a plausible answer can be produced without reading anything. That answer ignores everything the traveler already took the trouble to record, which is the exact experience these files exist to end.
 
 Two documents, one per traveler, owned by the traveler and portable across agents:
 
