@@ -1,4 +1,4 @@
-# traveler.md Agent Plugin
+# Traveler.md Agent Plugin
 
 An [Agent Plugins v1.0.0](https://agent-plugins.org/specification) package that connects an agent to a traveler's own **traveler.md** profile and **trip.md** trip plans, and teaches it how to write them correctly.
 
