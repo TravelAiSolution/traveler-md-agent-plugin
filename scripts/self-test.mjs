@@ -14,13 +14,28 @@
 // Exit code 0 = every fault was caught by its intended check.
 
 import { execFile, execFileSync } from 'node:child_process';
-import { cpSync, mkdtempSync, readFileSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SKILL = 'skills/travelermd/SKILL.md';
+const MARKETPLACE = '.agents/plugins/marketplace.json';
+
+// The Codex-facing metadata hangs off a reverse-domain namespace, so every case
+// that targets it would otherwise repeat the same two lookups and would break
+// silently if the namespace moved.
+const iface = (manifest) => manifest.extensions['com.openai'];
 // Width of the reporter's "FAIL  " / "PASS  " prefix in the checker output. The
 // checkers and this harness have to agree on it; naming it makes that explicit
 // rather than leaving a bare offset in a slice().
@@ -134,6 +149,117 @@ const CASES = [
     expect: 'outside the plugin root',
     apply: (d) => symlinkSync('/etc/hosts', join(d, 'skills/travelermd/references/escape.md')),
   },
+  {
+    what: 'skill metadata.version drifting from plugin.json',
+    expect: 'metadata.version matches plugin.json',
+    apply: (d) => editJson(d, 'plugin.json', (m) => (m.version = '9.9.9')),
+  },
+
+  // --- Codex / OpenAI host compatibility ---
+  {
+    what: 'a field in the com.openai extension the host does not read',
+    expect: 'declares only fields the host reads',
+    apply: (d) => editJson(d, 'plugin.json', (m) => (iface(m).commands = './commands')),
+  },
+  {
+    what: 'an interface field the host would silently ignore',
+    expect: 'interface has no fields the host would ignore',
+    apply: (d) => editJson(d, 'plugin.json', (m) => (iface(m).interface.iconUrl = 'x')),
+  },
+  {
+    what: 'a fourth default prompt, past the host cap',
+    expect: 'at most 3 entries',
+    apply: (d) =>
+      editJson(d, 'plugin.json', (m) => iface(m).interface.defaultPrompt.push('One more.')),
+  },
+  {
+    what: 'a default prompt longer than the host truncates at',
+    expect: 'entries are 1-128 chars',
+    apply: (d) =>
+      editJson(d, 'plugin.json', (m) => {
+        iface(m).interface.defaultPrompt[0] = 'x'.repeat(129);
+      }),
+  },
+  {
+    what: 'a brand colour that is not a 6-digit hex',
+    expect: 'brandColor is a 6-digit hex',
+    apply: (d) =>
+      editJson(d, 'plugin.json', (m) => {
+        iface(m).interface.brandColor = 'turquoise';
+      }),
+  },
+  {
+    what: 'a plaintext http listing URL',
+    expect: 'interface.websiteURL uses HTTPS',
+    apply: (d) =>
+      editJson(d, 'plugin.json', (m) => {
+        iface(m).interface.websiteURL = 'http://traveler.md';
+      }),
+  },
+  {
+    // Renamed rather than repointed: the manifest keeps a path that looks
+    // right, which is the way this actually breaks. A typo would be caught by
+    // eye; a moved file would not.
+    what: 'an interface asset whose file has been moved out from under it',
+    expect: 'composerIcon resolves to a file that exists',
+    apply: (d) => rmSync(join(d, 'assets/icon.png')),
+  },
+  {
+    what: 'an interface asset path the host would reject for its prefix',
+    expect: 'composerIcon starts with "./"',
+    apply: (d) =>
+      editJson(d, 'plugin.json', (m) => {
+        iface(m).interface.composerIcon = 'assets/icon.png';
+      }),
+  },
+  {
+    what: 'an interface asset path escaping the plugin root',
+    expect: 'composerIcon has no ".." component',
+    apply: (d) =>
+      editJson(d, 'plugin.json', (m) => {
+        iface(m).interface.composerIcon = './../elsewhere/icon.png';
+      }),
+  },
+  {
+    what: 'mcp.json replaced by a symlink, which disables MCP silently',
+    expect: 'not a symlink',
+    apply: (d) => {
+      renameSync(join(d, 'mcp.json'), join(d, 'mcp-real.json'));
+      symlinkSync(join(d, 'mcp-real.json'), join(d, 'mcp.json'));
+    },
+  },
+  {
+    what: 'a skill nested deeper than the host discovers',
+    expect: 'direct child of skills/<name>/',
+    apply: (d) => {
+      mkdirSync(join(d, 'skills/travelermd/nested'));
+      writeFileSync(join(d, 'skills/travelermd/nested/SKILL.md'), '---\nname: nested\n---\n');
+    },
+  },
+  {
+    what: 'the documented-but-invalid ON_FIRST_USE auth policy',
+    expect: 'policy.authentication is a value the host accepts',
+    apply: (d) =>
+      editJson(d, MARKETPLACE, (m) => {
+        m.plugins[0].policy.authentication = 'ON_FIRST_USE';
+      }),
+  },
+  {
+    what: 'a marketplace entry naming a plugin this repo does not contain',
+    expect: 'name matches plugin.json',
+    apply: (d) =>
+      editJson(d, MARKETPLACE, (m) => {
+        m.plugins[0].name = 'traveler-md-legacy';
+      }),
+  },
+  {
+    what: 'a marketplace local source pointing outside its root',
+    expect: 'local source path stays inside the marketplace root',
+    apply: (d) =>
+      editJson(d, MARKETPLACE, (m) => {
+        m.plugins[0].source.path = './../elsewhere';
+      }),
+  },
 
   // --- check-drift.mjs ---
   {
@@ -206,7 +332,15 @@ const CONCURRENCY = Number(process.env.SELFTEST_CONCURRENCY ?? 6);
 
 function runCase(c) {
   const dir = mkdtempSync(join(tmpdir(), 'agent-plugin-selftest-'));
-  for (const item of ['plugin.json', 'mcp.json', 'skills', 'scripts', 'package.json']) {
+  for (const item of [
+    'plugin.json',
+    'mcp.json',
+    'skills',
+    'scripts',
+    'package.json',
+    '.agents',
+    'assets',
+  ]) {
     cpSync(join(ROOT, item), join(dir, item), { recursive: true });
   }
   // A symlink, not a copy, because installing per case would dominate the run.

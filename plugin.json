@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "traveler-md",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "Read and write a traveler's portable travel profile (traveler.md) and trip plans (trip.md) over the traveler.md MCP server, with skills that teach the read-before-write concurrency loop and the section model.",
   "author": {
     "name": "TravelAI",
@@ -10,5 +10,29 @@
   "homepage": "https://docs.traveler.md/mcp",
   "repository": "https://github.com/TravelAiSolution/traveler-md-agent-plugin",
   "license": "MIT",
-  "keywords": ["travel", "traveler-md", "trip-planning", "mcp", "personalization"]
+  "keywords": ["travel", "traveler-md", "trip-planning", "mcp", "personalization"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Traveler.md",
+        "shortDescription": "A traveler's portable travel profile and trip plans.",
+        "longDescription": "Traveler.md is a travel profile owned by the traveler rather than by any one app: how they like to fly, where they like to stay, who they usually travel with. Trip.md is the plan for a single trip. This plugin connects an agent to both over one MCP server, and carries the operational knowledge the tool schemas cannot: that a write replaces a section wholesale, that every update needs a version hash from a fresh read, and how to recover from each error the server returns.",
+        "developerName": "TravelAI",
+        "category": "Productivity",
+        "capabilities": ["Read", "Write"],
+        "websiteURL": "https://traveler.md",
+        "privacyPolicyURL": "https://traveler.md/privacy",
+        "termsOfServiceURL": "https://traveler.md/terms",
+        "defaultPrompt": [
+          "Read my Traveler.md profile before you plan anything.",
+          "Remember that I prefer an aisle seat on long flights.",
+          "Start a Trip.md for my week in Lisbon in October."
+        ],
+        "brandColor": "#f57963",
+        "composerIcon": "./assets/icon.png",
+        "logo": "./assets/logo.png",
+        "logoDark": "./assets/logo-dark.png"
+      }
+    }
+  }
 }
