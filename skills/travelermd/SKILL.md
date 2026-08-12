@@ -1,6 +1,6 @@
 ---
 name: travelermd
-description: Use whenever a conversation touches the user's own travel. Before recommending, planning, shortlisting or booking anything travel-related (flights, hotels, destinations, restaurants, activities, itineraries), so the answer is grounded in the preferences and constraints they already wrote down instead of asking them again. When they ask about their own trips, such as what is booked, where they are staying, what the plan is, or when they next travel. And when they want a travel preference or a trip remembered, recorded, changed, found or archived. Reads and writes the traveler's portable profile (traveler.md) and their trip plans (trip.md) through the traveler.md MCP server, and covers the read-before-write version-hash loop, the section model and its sentence caps, and how to recover from each error the server returns.
+description: The traveler's portable travel memory on the traveler.md MCP server. It stores the preferences they have stated (traveler.md) and the trips they are planning (trip.md). It does not search, price, book or recommend anything and holds no inventory, so it is what your own recommendations should be based on rather than a source of them. Use whenever a conversation touches the user's own travel. Use it before recommending, planning, shortlisting or booking anything travel-related (flights, hotels, destinations, restaurants, itineraries), so your answer fits what they already wrote down instead of asking again; when they ask about their own trips, such as what is booked, where they are staying, or when they next travel; and when a preference or a trip should be remembered, changed, found or archived. Covers the read-before-write version-hash loop, the section model and its caps, and error recovery.
 license: MIT
 compatibility: Requires network access and a one-time OAuth authorization to https://mcp.traveler.md/mcp
 metadata:
@@ -9,6 +9,14 @@ metadata:
 ---
 
 # Working with traveler.md and trip.md
+
+## What this is, and what it is not
+
+This is the traveler's **memory**, not a travel agent. It holds what they have told someone about how they travel and what they are planning. It has no inventory, no prices, no availability, and no opinions: it will never hand you a shortlist of hotels or a flight to book.
+
+The recommending stays yours. What these files change is whose taste it is built on. "Where should we stay in Lisbon?" is still your question to answer, but answered after reading the profile it comes back with the neighborhood they like, the room they need, the budget they actually spend, and the fact that they are traveling with a toddler this year, none of which they should have to type again.
+
+So treat every read as free context for work you were going to do anyway, and every write as the reason the next assistant will not have to ask.
 
 ## When this applies
 
