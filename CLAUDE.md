@@ -55,7 +55,9 @@ code `pnpm lint:ci` accepts.
 
 1. **A change to the skill's claims ships with the evidence.** Do not edit a cap, a section name, a
    status, a scope or an error message from memory. Read the source-of-truth file in the backend
-   repo, or probe the live surface, and say in the PR what you checked it against.
+   repo, or probe the live surface, and say in the PR what you checked it against. Name that source
+   by what it is, not by its path: "the server's section descriptor", never `packages/...`. See
+   "Public repo".
 2. **The gates pass locally.** These are exactly what CI runs:
    ```bash
    pnpm format:check
@@ -65,6 +67,41 @@ code `pnpm lint:ci` accepts.
 3. **A failing gate means fixing the cause, not bypassing it.** Never `--no-verify`. Never add an
    eslint-disable to quiet a lint rule; never delete or weaken a check in `scripts/` to make a run
    pass. If `self-test` says a fault is no longer caught, the validator regressed.
+
+## Public repo
+
+**This repo is PUBLIC, and so is everything attached to it.** Not just the files: the git history,
+every commit message, pull request title and body, review comment, issue, and release note. All of
+it is world-readable, permanently, and all of it is a public statement about what the traveler.md
+MCP server does.
+
+Never write any of the following into any of those surfaces:
+
+- **Internal source paths and repo names.** No `packages/...`, `apps/...` or `src/...` paths from the
+  server repo, and no naming of the private repos themselves. Cite a claim by describing what
+  defines it ("the server's section descriptor", "the request handler") rather than by path.
+- **Internal issue and pull request numbers** from other repos. `#123` here means an issue in this
+  repo; a bare number pointing anywhere else is both a leak and a broken link.
+- **Infrastructure detail.** WAF rules, task definitions, log groups, runner labels, account ids,
+  ARNs, non-public hostnames, database or queue names.
+- **Deployment and environment state.** Which environment is running which build, what lags what,
+  probe recipes for telling them apart, or the existence and naming of non-public environments.
+- **Anything unshipped or roadmap-shaped.** Do not describe a fix, feature or schema change as
+  forthcoming. Either it is live and documented, or it is not mentioned. "A tracked server-side fix
+  will..." is the most you should ever say, with no identifier attached.
+- **End-traveler data**, in examples or anywhere else. Examples use invented, neutral preferences.
+
+All of that belongs in the server repo's `docs/`, which is private.
+
+**A public-repo check covers the body, the commit message and the diff.** A checklist item that
+scopes only to the diff is the failure mode this rule exists to prevent: the leak lands in the prose
+you wrote around a clean diff.
+
+**Editing a leak out later is not a fix.** GitHub keeps the pre-edit text of every pull request body
+and comment in its revision history, viewable by anyone who can see the pull request via the
+"edited" menu. Correcting the body leaves the original fully readable. The old revisions have to be
+deleted one at a time in the GitHub UI, and there is no API for it. Git history is worse: once
+someone has forked or cloned, a rewrite reaches nothing. Get it right the first time.
 
 ## Conventions
 
@@ -82,12 +119,8 @@ code `pnpm lint:ci` accepts.
 - **No em dashes in prose.** House style, not lint-enforced.
 - **Bugs found but not fixed go in `tasks/bugs.md`** with location, reproduction, what is wrong,
   candidate fixes and any workaround in place. A fixed entry is deleted, never struck through.
-- **This repo is PUBLIC, including its git history.** Everything in it is a public statement about
-  what the traveler.md MCP server does. Before committing, check for: internal source paths and repo
-  names, infrastructure detail (WAF rules, task definitions, log groups, runner labels, account ids,
-  ARNs, non-public hostnames), anything unshipped or roadmap-shaped, and end-traveler data in
-  examples. All of that belongs in the server repo's `docs/`, which is private. Rewriting history to
-  remove a leak after the fact is not reliably possible once someone has forked.
+- **Everything you write here is public. See "Public repo" below before every commit and every pull
+  request.**
 - **Never `git push` without an explicit ask in the current turn.**
 
 ## Branches and releases
