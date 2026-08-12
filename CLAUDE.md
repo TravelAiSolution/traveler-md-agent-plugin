@@ -12,6 +12,8 @@ framework. The deliverables are:
 plugin.json                  # portable manifest (closed schema, 10 permitted fields)
 mcp.json                     # one streamable-http MCP server (closed schema)
 skills/travelermd/           # one Agent Skill: SKILL.md + references/
+assets/                      # brand marks referenced by the install-surface metadata
+.agents/plugins/             # marketplace entry: distribution, not a plugin component
 scripts/                     # validation tooling ONLY, not part of the plugin
 ```
 
@@ -117,6 +119,27 @@ someone has forked or cloned, a rewrite reaches nothing. Get it right the first 
 - **Examples never reference allergies or other medical detail.** Use neutral preferences. Same rule
   as the docs site.
 - **No em dashes in prose.** House style, not lint-enforced.
+- **`assets/` is copied from the published brand assets, never drawn or derived here.** The icon and
+  the two lockups are byte copies of the marks the product already ships, and `brandColor` mirrors
+  the coral token in the brand style guide, which is the only thing to read a brand colour from: do
+  not infer one from a rendered page. Re-copy when the brand moves, and do not hand-edit, recolour or
+  regenerate a mark here.
+  Known limitation: the icon is a black glyph on a transparent background, so it reads poorly on a
+  dark install surface, and an OpenAI host gives `composerIcon` no dark counterpart the way it does
+  `logo`. A light-ground icon has to arrive as a brand asset; it is not something to invent here.
+- **`extensions["com.openai"]` carries presentation only.** An OpenAI host reads `interface`, `apps`
+  and `hooks` from that namespace and ignores everything else. Keep it to `interface`: `apps` and
+  `hooks` would make the package's behaviour depend on which client installed it, and hooks are
+  non-managed, so a host prompts the traveler to trust them before anything runs. Nothing portable
+  goes in a vendor namespace, and no second manifest: a `.codex-plugin/plugin.json` would restate
+  `name` and `version` with nothing keeping them in step, and the `extensions` entry wins anyway.
+- **Rules in `scripts/validate.mjs` about a host come from that host's source, not its docs.** The
+  published plugin docs and the shipping loader disagree in at least three places: the manifest is
+  read at the repo root for an Agent Plugins package (no `.codex-plugin/` needed), the bundled MCP
+  file key is `mcpServers` and not `mcp_servers`, and the auth policy value is `ON_USE` and not the
+  documented `ON_FIRST_USE`, which fails deserialisation of the whole marketplace file. When adding
+  a check, cite the file you read it from and add a self-test case, because almost everything these
+  hosts reject they reject silently: a dropped field warns in a log we never see.
 - **Bugs found but not fixed go in `tasks/bugs.md`** with location, reproduction, what is wrong,
   candidate fixes and any workaround in place. A fixed entry is deleted, never struck through.
 - **Everything you write here is public. See "Public repo" below before every commit and every pull

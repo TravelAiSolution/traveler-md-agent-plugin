@@ -1,0 +1,20 @@
+{
+  "name": "travelai",
+  "interface": {
+    "displayName": "TravelAI"
+  },
+  "plugins": [
+    {
+      "name": "traveler-md",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
