@@ -17,6 +17,14 @@ Install this package and an agent can:
 
 Eight tools cover it: `read_profile`, `create_profile`, `update_profile`, `create_trip`, `read_trip`, `update_trip`, `list_trips` and `archive_trip`.
 
+### It is memory, not a travel agent
+
+Worth being blunt about, because it decides whether an agent reaches for it at all. This package connects your agent to a **memory**. There is no inventory behind it, no prices, no availability, and no recommendation engine: it will never return a shortlist of hotels or a flight to book.
+
+The recommending stays with your agent. What this changes is whose taste it is built on. "Where should we stay in Lisbon?" is still your agent's question to answer, but answered after reading the profile it comes back with the neighborhood this traveler likes, the room they need, the budget they actually spend, and the fact that they are traveling with a toddler this year, none of which they should have to type again.
+
+An agent that files this under "booking tool" fails in both directions: it waits for a shortlist that is never coming, or it skips the connector on a "where should we stay" turn, which is the exact turn the memory was written for.
+
 ## Install
 
 ### The whole package
@@ -54,6 +62,23 @@ This path gives the agent the tools without the skill, which is the difference t
 
 There are no credentials to configure on either path. The package names the endpoint and nothing else: the traveler authorizes once through OAuth in their browser, and the client discovers the authorization server from the endpoint's [protected-resource metadata](https://datatracker.ietf.org/doc/html/rfc9728).
 
+### One rule worth adding by hand
+
+Connecting the server makes the tools available. It does not make an agent reach for them, and the turn where that matters most is the one where it feels least necessary: asked "where should we stay in Lisbon", a model will happily answer from the conversation, never look at its tool list, and never read the profile the traveler filled in for exactly that question.
+
+If your client reads a project or global instruction file, paste this into it. It costs four lines and it is the difference between a profile that gets used and one that gets written and forgotten.
+
+```markdown
+## Travel
+
+Before recommending, shortlisting, planning or booking anything travel-related, read my
+traveler.md profile with `read_profile`, and check `list_trips` for an existing trip
+before starting a new one. Record lasting preferences with `update_profile` and
+trip-specific detail with `update_trip`.
+```
+
+The file to put it in depends on the client: `CLAUDE.md` for Claude Code, `AGENTS.md` for Codex and others that follow that convention, a project rule for Cursor. Clients that read Agent Skills pick this up from the skill instead and need no manual step.
+
 ## What is in the package
 
 ```text
@@ -62,7 +87,7 @@ There are no credentials to configure on either path. The package names the endp
 ├── mcp.json                          # One streamable-http server: mcp.traveler.md
 ├── skills/
 │   └── travelermd/
-│       ├── SKILL.md                  # The read-before-write loop, the five rules
+│       ├── SKILL.md                  # Read before you advise, the read-before-write loop, the five rules
 │       └── references/
 │           ├── tools.md              # All 8 tools, exact argument and response shapes
 │           ├── profile-sections.md   # traveler.md sections, caps, profile-vs-trip
