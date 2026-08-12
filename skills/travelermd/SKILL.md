@@ -1,14 +1,39 @@
 ---
 name: travelermd
-description: Read and write a traveler's portable travel profile (traveler.md) and their trip plans (trip.md) through the traveler.md MCP server. Use when the user asks to remember, recall, or change their travel preferences, or to create, find, update, or archive a trip. Covers the read-before-write version-hash loop, the section model and its sentence caps, and how to recover from each error the server returns.
+description: The traveler's portable travel memory on the traveler.md MCP server. It stores the preferences they have stated (traveler.md) and the trips they are planning (trip.md). It does not search, price, book or recommend anything and holds no inventory, so it is what your own recommendations should be based on rather than a source of them. Use whenever a conversation touches the user's own travel. Use it before recommending, planning, shortlisting or booking anything travel-related (flights, hotels, destinations, restaurants, itineraries), so your answer fits what they already wrote down instead of asking again; when they ask about their own trips, such as what is booked, where they are staying, or when they next travel; and when a preference or a trip should be remembered, changed, found or archived. Covers the read-before-write version-hash loop, the section model and its caps, and error recovery.
 license: MIT
 compatibility: Requires network access and a one-time OAuth authorization to https://mcp.traveler.md/mcp
 metadata:
   author: TravelAI
-  version: '0.2.0'
+  version: '1.0.0'
 ---
 
 # Working with traveler.md and trip.md
+
+## What this is, and what it is not
+
+This is the traveler's **memory**, not a travel agent. It holds what they have told someone about how they travel and what they are planning. It has no inventory, no prices, no availability, and no opinions: it will never hand you a shortlist of hotels or a flight to book.
+
+The recommending stays yours. What these files change is whose taste it is built on. "Where should we stay in Lisbon?" is still your question to answer, but answered after reading the profile it comes back with the neighborhood they like, the room they need, the budget they actually spend, and the fact that they are traveling with a toddler this year, none of which they should have to type again.
+
+So treat every read as free context for work you were going to do anyway, and every write as the reason the next assistant will not have to ask.
+
+## When this applies
+
+Any turn about the user's own travel, including the ones that do not sound like a request to touch a file:
+
+| They say                                           | Do this first                    |
+| -------------------------------------------------- | -------------------------------- |
+| "Where should we stay in Lisbon?"                  | `read_profile`                   |
+| "Find me a flight to Denver on the 14th"           | `read_profile`                   |
+| "Any restaurant ideas for Tokyo?"                  | `read_profile`                   |
+| "What's my next trip?" / "What have I got booked?" | `list_trips`                     |
+| "What's the plan for Kyoto?"                       | `list_trips`, then `read_trip`   |
+| "I'd love to see Patagonia one day"                | `create_trip`, status `Dreaming` |
+| "I always want an aisle seat"                      | `update_profile`                 |
+| "We booked the ryokan"                             | `update_trip`                    |
+
+The first three are the ones most often missed, because a plausible answer can be produced without reading anything. That answer ignores everything the traveler already took the trouble to record, which is the exact experience these files exist to end.
 
 Two documents, one per traveler, owned by the traveler and portable across agents:
 
@@ -18,6 +43,12 @@ Two documents, one per traveler, owned by the traveler and portable across agent
 Both are stored as **sections**, where a section is a named list of short sentences. The server renders them to markdown; you never write markdown yourself, you write sentences into named sections.
 
 The split matters. "Prefers aisle seats" belongs in the profile. "Seat 14C on the outbound" belongs in the trip. Writing trip specifics into the profile pollutes every future trip.
+
+## Read before you advise
+
+The files are worth as much on the way in as on the way out. Before recommending, shortlisting, planning or booking anything travel-related, call `read_profile`, and when the request concerns a particular trip, find it with `list_trips` and open it with `read_trip`. A recommendation made without reading them is a recommendation that ignores everything the traveler already took the trouble to write down, and asking them for it again is the specific experience these files exist to end.
+
+Two habits make that cheap. `read_profile` takes a `sections` filter, so a question that turns on flights or on food need not carry all twenty sections. And a read is not a commitment to write: reading to ground an answer is the common case, writing only when something new or changed is worth keeping.
 
 ## Tools
 

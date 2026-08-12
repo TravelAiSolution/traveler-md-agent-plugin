@@ -17,11 +17,30 @@ Install this package and an agent can:
 
 Eight tools cover it: `read_profile`, `create_profile`, `update_profile`, `create_trip`, `read_trip`, `update_trip`, `list_trips` and `archive_trip`.
 
+### It is memory, not a travel agent
+
+Worth being blunt about, because it decides whether an agent reaches for it at all. This package connects your agent to a **memory**. There is no inventory behind it, no prices, no availability, and no recommendation engine: it will never return a shortlist of hotels or a flight to book.
+
+The recommending stays with your agent. What this changes is whose taste it is built on. "Where should we stay in Lisbon?" is still your agent's question to answer, but answered after reading the profile it comes back with the neighborhood this traveler likes, the room they need, the budget they actually spend, and the fact that they are traveling with a toddler this year, none of which they should have to type again.
+
+An agent that files this under "booking tool" fails in both directions: it waits for a shortlist that is never coming, or it skips the connector on a "where should we stay" turn, which is the exact turn the memory was written for.
+
 ## Install
 
 ### The whole package
 
 Agent Plugins v1 deliberately defines no install mechanism, distribution protocol, or registry. Each client owns its own install path, so follow your client's instructions for adding a local or Git-hosted Agent Plugin and point it at this repository. That is the path that gets the skill as well as the server.
+
+Codex and ChatGPT read Agent Plugins directly, and this repository doubles as a single-plugin marketplace, so they install it from the Git URL:
+
+```bash
+codex plugin marketplace add https://github.com/TravelAiSolution/traveler-md-agent-plugin
+codex plugin add traveler-md@travelai
+```
+
+The first command registers the marketplace this repository declares, named `travelai`; the second installs the one plugin in it. The traveler is asked to authorize on first use rather than at install time.
+
+The host reads the manifest at the repository root and infers the rest: `skills/` and `mcp.json` are where it already looks, so there is no second manifest to keep in step. What it cannot infer is how the plugin should present itself in an install surface, and that lives under `extensions["com.openai"]` in `plugin.json`. See [Portability across clients](#portability-across-clients).
 
 ### The MCP server on its own
 
@@ -54,6 +73,23 @@ This path gives the agent the tools without the skill, which is the difference t
 
 There are no credentials to configure on either path. The package names the endpoint and nothing else: the traveler authorizes once through OAuth in their browser, and the client discovers the authorization server from the endpoint's [protected-resource metadata](https://datatracker.ietf.org/doc/html/rfc9728).
 
+### One rule worth adding by hand
+
+Connecting the server makes the tools available. It does not make an agent reach for them, and the turn where that matters most is the one where it feels least necessary: asked "where should we stay in Lisbon", a model will happily answer from the conversation, never look at its tool list, and never read the profile the traveler filled in for exactly that question.
+
+If your client reads a project or global instruction file, paste this into it. It costs four lines and it is the difference between a profile that gets used and one that gets written and forgotten.
+
+```markdown
+## Travel
+
+Before recommending, shortlisting, planning or booking anything travel-related, read my
+traveler.md profile with `read_profile`, and check `list_trips` for an existing trip
+before starting a new one. Record lasting preferences with `update_profile` and
+trip-specific detail with `update_trip`.
+```
+
+The file to put it in depends on the client: `CLAUDE.md` for Claude Code, `AGENTS.md` for Codex and others that follow that convention, a project rule for Cursor. Clients that read Agent Skills pick this up from the skill instead and need no manual step.
+
 ## What is in the package
 
 ```text
@@ -62,12 +98,15 @@ There are no credentials to configure on either path. The package names the endp
 ├── mcp.json                          # One streamable-http server: mcp.traveler.md
 ├── skills/
 │   └── travelermd/
-│       ├── SKILL.md                  # The read-before-write loop, the five rules
+│       ├── SKILL.md                  # Read before you advise, the read-before-write loop, the five rules
 │       └── references/
 │           ├── tools.md              # All 8 tools, exact argument and response shapes
 │           ├── profile-sections.md   # traveler.md sections, caps, profile-vs-trip
 │           ├── trip-sections.md      # trip.md sections, caps, status lifecycle
 │           └── errors.md             # Every error code and its recovery
+├── assets/                           # Brand marks for the install surface
+├── .agents/plugins/
+│   └── marketplace.json              # Makes this repo installable from its Git URL
 └── scripts/                          # Validation tooling, not part of the plugin
 ```
 
@@ -78,7 +117,9 @@ Two portable component types, which is all v1 defines:
 
 `scripts/` is not a plugin component. Agent Plugins v1 defines exactly two component types, skills
 and MCP servers, and a client reads only `plugin.json`, `skills/` and `mcp.json`. Everything else
-here is repo tooling and is invisible to the clients that install this package.
+here is repo tooling and is invisible to the clients that install this package. `.agents/plugins/`
+is distribution rather than content: it is how a host finds the plugin, not part of what gets
+installed.
 
 ## Why the skill matters as much as the server
 
@@ -96,7 +137,13 @@ The skill front-loads each of those. Shipping it in the same package as the serv
 
 ## Portability across clients
 
-`plugin.json`'s top-level schema is closed: only `$schema`, `name`, `version`, `description`, `author`, `homepage`, `repository`, `license`, `keywords` and `extensions` are permitted. Hooks, agents, commands and similar features are not portable v1 components. If a client needs them, they belong under a reverse-domain namespace that client owns, either as an `extensions` object in the manifest or as a top-level `com.vendor.client/` directory. This package uses neither, so it stays portable across every conforming client.
+`plugin.json`'s top-level schema is closed: only `$schema`, `name`, `version`, `description`, `author`, `homepage`, `repository`, `license`, `keywords` and `extensions` are permitted. Hooks, agents, commands and similar features are not portable v1 components. If a client needs them, they belong under a reverse-domain namespace that client owns, either as an `extensions` object in the manifest or as a top-level `com.vendor.client/` directory.
+
+This package uses exactly one such namespace, `extensions["com.openai"]`, and only for install-surface metadata: display name, category, listing copy, starter prompts, brand colour, the marks in `assets/` and the links to the privacy policy and terms. None of it changes what the plugin does, every other conforming client ignores it, and no portable component is declared there.
+
+The marks in `assets/` are the Traveler.md logo and icon. The MIT licence covers the contents of this repository as a work; it is not a licence to use TravelAI's names or logos.
+
+That namespace is also the reason there is no `.codex-plugin/plugin.json`. An OpenAI host will read either one, and prefers the `extensions` entry when both exist, so the alternative would have been a second manifest restating `name` and `version` with nothing to keep them in step. One manifest cannot drift from itself.
 
 ## Working on this repo
 
@@ -114,11 +161,11 @@ pnpm check-drift    # skill vs the live MCP surface
 
 The lint and format commands, and what each one is for, are in `CLAUDE.md`.
 
-| Suite              | What it proves                                                                                                                                                                                                                                                                                                     |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `pnpm validate`    | `plugin.json` and `mcp.json` satisfy the published 1.0.0 schemas (both closed, so an unknown field fails), plus the semantic rules the schemas cannot express: cross-file version match, HTTPS and no-credentials-in-headers, skill discovery, Agent Skills frontmatter, working relative links, path containment. |
-| `pnpm self-test`   | The checkers reject what they claim to. Injects one deliberate fault at a time, against `validate` and `check-drift` both, and asserts each is caught **by its intended check**, so a fault cannot be masked by an unrelated failure.                                                                              |
-| `pnpm check-drift` | The skill's section names, sentence caps, trip statuses, pagination limits and private-section flags still match the real MCP surface.                                                                                                                                                                             |
+| Suite              | What it proves                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm validate`    | `plugin.json` and `mcp.json` satisfy the published 1.0.0 schemas (both closed, so an unknown field fails), plus the semantic rules the schemas cannot express: cross-file version match, HTTPS and no-credentials-in-headers, skill discovery, Agent Skills frontmatter, working relative links, path containment. It also covers the rules an OpenAI host enforces on `extensions["com.openai"]` and on `.agents/plugins/marketplace.json`, taken from that host's implementation rather than its documentation, because the two diverge. |
+| `pnpm self-test`   | The checkers reject what they claim to. Injects one deliberate fault at a time, against `validate` and `check-drift` both, and asserts each is caught **by its intended check**, so a fault cannot be masked by an unrelated failure.                                                                                                                                                                                                                                                                                                      |
+| `pnpm check-drift` | The skill's section names, sentence caps, trip statuses, pagination limits and private-section flags still match the real MCP surface.                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 The two Agent Plugins schemas are vendored under `scripts/schemas/1.0.0/`, fetched from their canonical URLs. Spec §10.1 forbids reassigning a published schema identifier to different contents, which is what makes vendoring safe. Clients are separately forbidden from fetching schemas at load time; validating in CI is fine.
 
