@@ -26,7 +26,7 @@ GitHub keeps the pre-edit text in the revision history. See CLAUDE.md,
 <!-- If you touched skills/**, say which claim changed and what you checked it
 against. Name the source by what it is, not by its path. If the MCP surface
 itself moved, `scripts/fixtures/live-surface.json` needs refreshing in this PR
-too. See README, "Keeping the skill honest". -->
+too. See README, "Keeping the skill accurate". -->
 
 - Claim changed:
 - Verified against:
