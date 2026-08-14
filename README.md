@@ -17,19 +17,19 @@ Install this package and an agent can:
 
 Eight tools cover it: `read_profile`, `create_profile`, `update_profile`, `create_trip`, `read_trip`, `update_trip`, `list_trips` and `archive_trip`.
 
-### It is memory, not a travel agent
+### Scope: travel memory only
 
-Worth being blunt about, because it decides whether an agent reaches for it at all. This package connects your agent to a **memory**. There is no inventory behind it, no prices, no availability, and no recommendation engine: it will never return a shortlist of hotels or a flight to book.
+This package connects your agent to a **memory**. The server stores and returns what the traveler has recorded. It holds no inventory, no prices and no availability, and it has no recommendation engine, so it will never return a shortlist of hotels or a flight to book.
 
-The recommending stays with your agent. What this changes is whose taste it is built on. "Where should we stay in Lisbon?" is still your agent's question to answer, but answered after reading the profile it comes back with the neighborhood this traveler likes, the room they need, the budget they actually spend, and the fact that they are traveling with a toddler this year, none of which they should have to type again.
+Your agent still does the recommending. Reading the profile first changes what that recommendation is based on. "Where should we stay in Lisbon?" is still your agent's question to answer, and after a read it can answer with the neighborhood this traveler likes, the room they need, the budget they actually spend, and the fact that they are traveling with a toddler this year.
 
-An agent that files this under "booking tool" fails in both directions: it waits for a shortlist that is never coming, or it skips the connector on a "where should we stay" turn, which is the exact turn the memory was written for.
+An agent that files this under "booking tool" fails in two ways. It waits for a shortlist that never arrives, or it skips the server on a "where should we stay" turn, which is the turn the profile was written for.
 
 ## Install
 
 ### The whole package
 
-Agent Plugins v1 deliberately defines no install mechanism, distribution protocol, or registry. Each client owns its own install path, so follow your client's instructions for adding a local or Git-hosted Agent Plugin and point it at this repository. That is the path that gets the skill as well as the server.
+Agent Plugins v1 deliberately defines no install mechanism, distribution protocol, or registry. Each client owns its own install path, so follow your client's instructions for adding a local or Git-hosted Agent Plugin and point it at this repository. That path installs the skill as well as the server.
 
 Codex and ChatGPT read Agent Plugins directly, and this repository doubles as a single-plugin marketplace, so they install it from the Git URL:
 
@@ -38,9 +38,9 @@ codex plugin marketplace add https://github.com/TravelAiSolution/traveler-md-age
 codex plugin add traveler-md@travelai
 ```
 
-The first command registers the marketplace this repository declares, named `travelai`; the second installs the one plugin in it. The traveler is asked to authorize on first use rather than at install time.
+The first command registers the marketplace this repository declares, named `travelai`. The second installs the one plugin in it. The traveler is asked to authorize on first use rather than at install time.
 
-The host reads the manifest at the repository root and infers the rest: `skills/` and `mcp.json` are where it already looks, so there is no second manifest to keep in step. What it cannot infer is how the plugin should present itself in an install surface, and that lives under `extensions["com.openai"]` in `plugin.json`. See [Portability across clients](#portability-across-clients).
+The host reads the manifest at the repository root and finds the rest by convention: `skills/` and `mcp.json` are already where it looks, so there is no second manifest to keep in step. What it cannot infer is how the plugin should present itself in an install surface, and that lives under `extensions["com.openai"]` in `plugin.json`. See [Portability across clients](#portability-across-clients).
 
 ### The MCP server on its own
 
@@ -69,15 +69,15 @@ Any other client that speaks remote MCP takes the URL directly:
 }
 ```
 
-This path gives the agent the tools without the skill, which is the difference the next section is about. Per-client walkthroughs for Claude, Claude Code, Cursor, Codex, ChatGPT, Gemini and others are at <https://docs.traveler.md/mcp>.
+This path gives the agent the tools without the skill, which is what the next section is about. Per-client walkthroughs for Claude, Claude Code, Cursor, Codex, ChatGPT, Gemini and others are at <https://docs.traveler.md/mcp>.
 
 There are no credentials to configure on either path. The package names the endpoint and nothing else: the traveler authorizes once through OAuth in their browser, and the client discovers the authorization server from the endpoint's [protected-resource metadata](https://datatracker.ietf.org/doc/html/rfc9728).
 
-### One rule worth adding by hand
+### One instruction worth adding by hand
 
-Connecting the server makes the tools available. It does not make an agent reach for them, and the turn where that matters most is the one where it feels least necessary: asked "where should we stay in Lisbon", a model will happily answer from the conversation, never look at its tool list, and never read the profile the traveler filled in for exactly that question.
+Connecting the server makes the tools available. It does not make an agent use them, and the turn where that matters most is the one where it feels least necessary: asked "where should we stay in Lisbon", a model will answer from the conversation, never look at its tool list, and never read the profile the traveler filled in for exactly that question.
 
-If your client reads a project or global instruction file, paste this into it. It costs four lines and it is the difference between a profile that gets used and one that gets written and forgotten.
+If your client reads a project or global instruction file, paste this into it. Without it, an agent will often answer travel questions without reading the profile at all.
 
 ```markdown
 ## Travel
@@ -110,18 +110,18 @@ The file to put it in depends on the client: `CLAUDE.md` for Claude Code, `AGENT
 └── scripts/                          # Validation tooling, not part of the plugin
 ```
 
-Two portable component types, which is all v1 defines:
+Agent Plugins v1 defines two portable component types, and this package ships one of each:
 
 - **One MCP server.** `https://mcp.traveler.md/mcp`, Streamable HTTP.
-- **One skill.** The server's tool schemas already describe the arguments. What they cannot express is the operational knowledge: that writes replace a section wholesale, that every update needs a version hash from a fresh read, that a misspelled argument name produces a successful-looking no-op. That is what the skill carries.
+- **One skill.** The server's tool schemas already describe the arguments. They do not describe the operational rules: that writes replace a section wholesale, that every update needs a version hash from a fresh read, that a misspelled argument name produces a successful-looking no-op. Those are what the skill carries.
 
 `scripts/` is not a plugin component. Agent Plugins v1 defines exactly two component types, skills
 and MCP servers, and a client reads only `plugin.json`, `skills/` and `mcp.json`. Everything else
 here is repo tooling and is invisible to the clients that install this package. `.agents/plugins/`
-is distribution rather than content: it is how a host finds the plugin, not part of what gets
-installed.
+is distribution rather than content: it is how a host finds the plugin, and it is not installed with
+it.
 
-## Why the skill matters as much as the server
+## Why the skill ships alongside the server
 
 Connecting an agent to the MCP server is one line of configuration. Getting it to use the surface _well_ is the harder half, and the failure modes are consistent:
 
@@ -133,7 +133,7 @@ Connecting an agent to the MCP server is one line of configuration. Getting it t
 - Omitting `sections` on a create or profile update, which the published schema does not mark required but the server rejects anyway.
 - Reading an empty `list_trips` page that still carries a `next_cursor` as "no such trip", when it means "nothing on this page".
 
-The skill front-loads each of those. Shipping it in the same package as the server config means an agent arrives already knowing them, instead of learning by failing against a real traveler's data.
+The skill documents each of those up front. Shipping it in the same package as the server config means an agent arrives already knowing them, instead of learning by failing against a real traveler's data.
 
 ## Portability across clients
 
@@ -141,14 +141,14 @@ The skill front-loads each of those. Shipping it in the same package as the serv
 
 This package uses exactly one such namespace, `extensions["com.openai"]`, and only for install-surface metadata: display name, category, listing copy, starter prompts, brand colour, the marks in `assets/` and the links to the privacy policy and terms. None of it changes what the plugin does, every other conforming client ignores it, and no portable component is declared there.
 
-The marks in `assets/` are the Traveler.md logo and icon. The MIT licence covers the contents of this repository as a work; it is not a licence to use TravelAI's names or logos.
+The marks in `assets/` are the Traveler.md logo and icon. The MIT licence covers the contents of this repository as a work, and it is not a licence to use TravelAI's names or logos.
 
-That namespace is also the reason there is no `.codex-plugin/plugin.json`. An OpenAI host will read either one, and prefers the `extensions` entry when both exist, so the alternative would have been a second manifest restating `name` and `version` with nothing to keep them in step. One manifest cannot drift from itself.
+That namespace is also why there is no `.codex-plugin/plugin.json`. An OpenAI host will read either one and prefers the `extensions` entry when both exist, so a second manifest would only restate `name` and `version` with nothing keeping the two in step.
 
 ## Working on this repo
 
-The package is content, not an application. There is no build step. Node 24 and pnpm are all you
-need, and `.nvmrc` pins the version.
+The package is content rather than an application, so there is no build step. Node 24 and pnpm are
+all you need, and `.nvmrc` pins the version.
 
 ```bash
 pnpm install
@@ -171,7 +171,7 @@ The two Agent Plugins schemas are vendored under `scripts/schemas/1.0.0/`, fetch
 
 ## Keeping the skill honest
 
-The skill states argument names, section names, caps, status values and error codes explicitly. That is what makes it useful and also what makes it rot. When the MCP surface changes, this package is updated alongside the server change.
+The skill states argument names, section names, caps, status values and error codes explicitly. That is what makes it useful, and it is also what makes it rot. When the MCP surface changes, this package is updated alongside the server change.
 
 `scripts/fixtures/live-surface.json` is a pinned snapshot of the section caps, scopes and enums the
 server advertises, generated by reading the server's own schema definitions rather than by hand.
@@ -182,7 +182,7 @@ Regenerating that snapshot reads the Traveler.md server's schema definitions dir
 maintainer task and the command lives with the server rather than here. If you spot a claim in the
 skill that the live server no longer honours, open an issue with what you observed and we will
 refresh the fixture. A refresh that makes `check-drift` fail is the signal that the skill's prose
-needs updating too, not just the fixture.
+needs updating too, alongside the fixture.
 
 Bump `plugin.json` `version` on any content change: clients use it for update checks and cache
 freshness.
@@ -193,8 +193,8 @@ schemas, so they will not show up in a schema diff and the drift check cannot se
 - **Unknown top-level arguments are dropped rather than rejected**, so a misspelled argument name
   yields a successful-looking result that changed nothing. This is why the skill tells agents to
   verify a write via `changes`. Unknown _section_ names inside `sections` are rejected normally.
-- **`CONFLICT` recovery detail arrives in the error message, not in a structured field**, which is why
-  the skill tells agents to read the message for the current hash.
+- **`CONFLICT` recovery detail arrives in the error message rather than in a structured field**, which
+  is why the skill tells agents to read the message for the current hash.
 
 ## Contributing
 
