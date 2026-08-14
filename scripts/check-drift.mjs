@@ -8,7 +8,7 @@
 // tool schemas need an authenticated session, and pinning them means CI fails
 // on an unreviewed divergence instead of silently tracking a moving target.
 // Refreshing the snapshot is the deliberate act that surfaces a real change.
-// See README, "Keeping the skill honest".
+// See README, "Keeping the skill accurate".
 //
 // Exit code 0 = the skill matches the snapshot.
 
