@@ -1,0 +1,19 @@
+# Product-specific configuration read by an OpenAI host's harness, not by the
+# agent. Optional everywhere else: a host that does not know this file ignores
+# it, and an OpenAI host without it synthesises a name from the skill's `name`
+# and a blurb from its `description`.
+#
+# Note the transport spelling. It is `streamable_http` here and
+# `streamable-http` in mcp.json, because the two files answer to different
+# schemas. Neither is a typo for the other.
+interface:
+  display_name: 'Trip Organizer'
+  short_description: 'Clean, deduplicate, and normalize an existing trip.md.'
+  default_prompt: 'Use $trip-organizer to tidy up my Kyoto trip.'
+dependencies:
+  tools:
+    - type: 'mcp'
+      value: 'travelermd'
+      description: "Reads and writes the traveler's own traveler.md profile and trip.md records."
+      transport: 'streamable_http'
+      url: 'https://mcp.traveler.md/mcp'

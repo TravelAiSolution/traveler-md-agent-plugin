@@ -97,23 +97,34 @@ The file to put it in depends on the client: `CLAUDE.md` for Claude Code, `AGENT
 ├── plugin.json                       # Portable manifest
 ├── mcp.json                          # One streamable-http server: mcp.traveler.md
 ├── skills/
-│   └── travelermd/
-│       ├── SKILL.md                  # Read before you advise, the read-before-write loop, the five rules
-│       └── references/
-│           ├── tools.md              # All 8 tools, exact argument and response shapes
-│           ├── profile-sections.md   # traveler.md sections, caps, profile-vs-trip
-│           ├── trip-sections.md      # trip.md sections, caps, status lifecycle
-│           └── errors.md             # Every error code and its recovery
+│   ├── travelermd/                   # The mechanics. Every other skill defers to this one
+│   │   ├── SKILL.md                  # Read before you advise, the read-before-write loop, the five rules
+│   │   └── references/
+│   │       ├── tools.md              # All 8 tools, exact argument and response shapes
+│   │       ├── profile-sections.md   # traveler.md sections, caps, profile-vs-trip
+│   │       ├── trip-sections.md      # trip.md sections, caps, status lifecycle
+│   │       └── errors.md             # Every error code and its recovery
+│   │                                 # (each workflow skill below also carries
+│   │                                 #  agents/openai.yaml: display name, blurb,
+│   │                                 #  example prompt, declared MCP dependency)
+│   ├── traveler-onboarding/          # Set up or deepen a profile, recover known trips
+│   ├── add-trip/                     # Assemble a trip from context and connected sources
+│   ├── trip-interview/               # Fill a sparse trip, one adaptive question at a time
+│   ├── trip-organizer/               # Deduplicate and re-file a messy trip
+│   ├── trip-readiness-check/         # Pre-departure gaps, deadlines and unresolved items
+│   └── post-trip-review/             # Debrief a finished trip, promote durable lessons
 ├── assets/                           # Brand marks for the install listing
 ├── .agents/plugins/
 │   └── marketplace.json              # Makes this repo installable from its Git URL
 └── scripts/                          # Validation tooling, not part of the plugin
 ```
 
-Agent Plugins v1 defines two portable component types, and this package ships one of each:
+Agent Plugins v1 defines two portable component types, and this package ships both:
 
 - **One MCP server.** `https://mcp.traveler.md/mcp`, Streamable HTTP.
-- **One skill.** The server's tool schemas describe the arguments. The skill covers the operational rules those schemas leave out: writes replace a section wholesale, every update needs a version hash from a fresh read, and a misspelled argument name produces a successful-looking no-op.
+- **Seven skills.** `travelermd` is the mechanics: the server's tool schemas describe the arguments, and this skill covers the operational rules those schemas leave out. Writes replace a section wholesale, every update needs a version hash from a fresh read, and a misspelled argument name produces a successful-looking no-op.
+
+  The other six are workflows, one per job a traveler actually asks for: `traveler-onboarding`, `add-trip`, `trip-interview`, `trip-organizer`, `trip-readiness-check`, `post-trip-review`. Each covers when to ask a question rather than write, which record a fact belongs in, and where its own workflow can lose data. None of them restate a section name, a cap or a status; they defer to `travelermd` for all of it, so there is one place to correct when the server moves.
 
 `scripts/` is not a plugin component. Agent Plugins v1 defines exactly two component types, skills
 and MCP servers, and a client reads only `plugin.json`, `skills/` and `mcp.json`. Everything else
