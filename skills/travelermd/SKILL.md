@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires network access and a one-time OAuth authorization to https://mcp.traveler.md/mcp
 metadata:
   author: TravelAI
-  version: '1.0.0'
+  version: '1.1.0'
 ---
 
 # Working with traveler.md and trip.md

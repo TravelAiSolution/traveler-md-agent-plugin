@@ -17,6 +17,10 @@ import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const SKILLS_ROOT = 'skills';
+// The one skill that carries the authoritative tables. Its references are the
+// only place a section name, a cap or a status is DEFINED, which is why the
+// table, numeric and scope checks below point here and nowhere else.
 const SKILL_DIR = 'skills/travelermd';
 
 const snap = JSON.parse(readFileSync(join(ROOT, 'scripts/fixtures/live-surface.json'), 'utf8'));
@@ -28,9 +32,13 @@ function read(rel) {
   return fileCache.get(rel);
 }
 
-// Every markdown file in the skill, so a check cannot miss a claim by being
-// pointed at a hand-maintained list of files that someone forgot to extend.
-function skillFiles() {
+// Every markdown file under a directory, so a check cannot miss a claim by
+// being pointed at a hand-maintained list of files that someone forgot to
+// extend. Called with SKILLS_ROOT rather than one skill: the package ships
+// several skills that all name sections and statuses, and a sweep scoped to the
+// skill that happens to own the tables leaves the rest unchecked. That is how a
+// wrong section name in a sibling skill would ship green.
+function skillFiles(root) {
   const out = [];
   const walk = (dir) => {
     for (const entry of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
@@ -39,7 +47,7 @@ function skillFiles() {
       else if (entry.name.endsWith('.md')) out.push(rel);
     }
   };
-  walk(SKILL_DIR);
+  walk(root);
   return out;
 }
 
@@ -112,17 +120,111 @@ const TITLE_CASE_TOKEN = /`([A-Z][A-Za-z]*(?: [A-Z][A-Za-z]*)*)`/g;
 // Must contain a lowercase letter, which is what separates a status
 // (`Trip In Progress`) from an error code (`CONFLICT`, `VALIDATION_ERROR`).
 const isTitleCase = (s) => s !== s.toUpperCase();
-for (const file of skillFiles()) {
+for (const file of skillFiles(SKILLS_ROOT)) {
   const found = new Set();
   for (const m of read(file).matchAll(TITLE_CASE_TOKEN)) {
     if (isTitleCase(m[1]) && !snap.statuses.includes(m[1])) found.add(m[1]);
   }
   const stray = [...found];
-  const rel = file.slice(SKILL_DIR.length + 1);
+  const rel = file.slice(SKILLS_ROOT.length + 1);
   if (stray.length === 0) {
     pass(`${rel}: no retired or invented status values`);
   } else {
     fail(`${rel}: no retired or invented status values`, stray.join(', '));
+  }
+}
+
+// Section names, swept across every skill as a CLOSED vocabulary.
+//
+// The table checks above prove the two reference tables match the fixture, but
+// they say nothing about the section names the other skills use in prose. Those
+// skills route a fact to a section by naming it, and a name the server does not
+// have is rejected at the boundary, so a typo is a workflow that cannot write.
+//
+// Rather than try to guess which backticked token is meant to be a section, this
+// treats the whole lowercase vocabulary as closed: a backticked lowercase token
+// is a section name, a tool name, an argument, or a response field, and anything
+// else is a typo or an invention. The allowlist below is therefore the complete
+// non-section vocabulary the skills are allowed to use, and adding a word to it
+// is the deliberate act of saying it is not a section.
+const KNOWN_VOCABULARY = new Set([
+  // Tools.
+  'read_profile',
+  'create_profile',
+  'update_profile',
+  'list_trips',
+  'read_trip',
+  'create_trip',
+  'update_trip',
+  'archive_trip',
+  // Arguments.
+  'sections',
+  'expected_version_hash',
+  'allow_clear_sections',
+  'idempotency_key',
+  'include_markdown',
+  'trip_id',
+  'title',
+  'status',
+  'slug',
+  'start_date',
+  'end_date',
+  'query',
+  'sort',
+  'limit',
+  'cursor',
+  'starts_after',
+  'starts_before',
+  // Response fields.
+  'version_hash',
+  'items',
+  'next_cursor',
+  'matched_sections',
+  'changes',
+  'added',
+  'updated',
+  'removed',
+  'sentences',
+  'rendered_markdown',
+  'renderer_version',
+  'spec_version',
+  'updated_at',
+  'recently_updated',
+  'data',
+  'input',
+  'required',
+  // Literals and prose terms that are not identifiers.
+  'false',
+  'snake_case',
+  // Deliberate MISSPELLINGS, quoted as examples of the silent-no-op trap.
+  // Removing either from the prose is fine; removing it from here while it is
+  // still quoted turns the example itself into a reported failure.
+  'section',
+  'trip',
+]);
+const LOWER_TOKEN = /`([a-z][a-z0-9_]*)`/g;
+const KNOWN_SECTIONS = new Set([
+  ...Object.keys(snap.profileSections),
+  ...Object.keys(snap.tripSections),
+]);
+
+for (const dir of readdirSync(join(ROOT, SKILLS_ROOT), { withFileTypes: true })) {
+  if (!dir.isDirectory()) continue;
+  const stray = new Map();
+  for (const file of skillFiles(`${SKILLS_ROOT}/${dir.name}`)) {
+    for (const m of read(file).matchAll(LOWER_TOKEN)) {
+      if (KNOWN_SECTIONS.has(m[1]) || KNOWN_VOCABULARY.has(m[1])) continue;
+      if (!stray.has(m[1])) stray.set(m[1], new Set());
+      stray.get(m[1]).add(file.slice(SKILLS_ROOT.length + 1));
+    }
+  }
+  if (stray.size === 0) {
+    pass(`${dir.name}: every backticked identifier is a real section, tool, argument or field`);
+  } else {
+    fail(
+      `${dir.name}: every backticked identifier is a real section, tool, argument or field`,
+      [...stray].map(([token, files]) => `\`${token}\` in ${[...files].join(', ')}`).join('; '),
+    );
   }
 }
 

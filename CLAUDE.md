@@ -11,7 +11,8 @@ framework. The deliverables are:
 ```
 plugin.json                  # portable manifest (closed schema, 10 permitted fields)
 mcp.json                     # one streamable-http MCP server (closed schema)
-skills/travelermd/           # one Agent Skill: SKILL.md + references/
+skills/travelermd/           # the mechanics skill: SKILL.md + references/
+skills/<workflow>/           # six workflow skills, each SKILL.md + its own references/
 assets/                      # brand marks referenced by the install-surface metadata
 .agents/plugins/             # marketplace entry: distribution, not a plugin component
 scripts/                     # validation tooling ONLY, not part of the plugin
@@ -107,6 +108,13 @@ someone has forked or cloned, a rewrite reaches nothing. Get it right the first 
 
 ## Conventions
 
+- **Only `skills/travelermd/` defines a section name, a sentence cap or a status.** The six workflow
+  skills name sections when routing a fact, but they never restate a cap, never enumerate the status
+  list, and never say which tools require `sections`. They link to the `travelermd` references
+  instead. This is what keeps a server-side change a one-file edit rather than a seven-file hunt, and
+  `pnpm check-drift` enforces the naming half of it: every backticked lowercase identifier in every
+  skill has to be a real section, tool, argument or response field, against a closed vocabulary in
+  the checker.
 - **The MCP surface moving is a change to this repo.** When the backend changes a section
   descriptor, a cap, the status enum, a scope or an error message, this package is updated in the
   same pull request. Refresh `scripts/fixtures/live-surface.json` (command in the README) and then
@@ -133,6 +141,19 @@ someone has forked or cloned, a rewrite reaches nothing. Get it right the first 
   non-managed, so a host prompts the traveler to trust them before anything runs. Nothing portable
   goes in a vendor namespace, and no second manifest: a `.codex-plugin/plugin.json` would restate
   `name` and `version` with nothing keeping them in step, and the `extensions` entry wins anyway.
+  **This rule is about the PLUGIN manifest and does not reach inside a skill.** A per-skill
+  `agents/openai.yaml` is a different thing at a different level: the Agent Skills spec permits any
+  files beyond `SKILL.md`, the file is the documented way to give one skill its own display name,
+  blurb, example prompt and declared tool dependencies, and it restates no field that `plugin.json`
+  owns. Keep it. `pnpm validate` checks each one, because no other client reads the file and a
+  broken one is invisible at install time.
+- **The `agents/openai.yaml` checks are the weakest-sourced rules in `scripts/validate.mjs`.** Every
+  other host rule there was read off a shipping loader. These come from OpenAI's published
+  skill-creator reference and its build-skills docs page, the same class of source the convention
+  above warns can disagree with the implementation. The 25-64 character bound on
+  `short_description` is documented author guidance, not an observed rejection threshold. Read a
+  failure as "outside what the vendor documents", and if you get access to the loader, re-derive
+  these from it and say so.
 - **Rules in `scripts/validate.mjs` about a host come from that host's source, not its docs.** The
   published plugin docs and the shipping loader disagree in at least three places: the manifest is
   read at the repo root for an Agent Plugins package (no `.codex-plugin/` needed), the bundled MCP

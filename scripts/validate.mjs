@@ -596,6 +596,215 @@ if (existsSync(skillsDir) && lstatSync(skillsDir).isDirectory()) {
   }
 }
 
+// --- 4b. Per-skill OpenAI harness configuration (optional) ----------------
+//
+// A skill may carry agents/openai.yaml, which an OpenAI host's harness reads for
+// the skill's install-surface name, blurb, example prompt and declared tool
+// dependencies. The Agent Skills spec permits any files beyond SKILL.md, so this
+// is invisible to every other client, and a skill without it still loads: the
+// host synthesises a display name from `name` and a blurb from `description`.
+//
+// PROVENANCE, and it is weaker than the rest of this file. Every other host rule
+// here was read off a shipping loader. These come from OpenAI's published
+// skill-creator reference and its build-skills docs page, which is the same class
+// of source the repo's conventions warn can disagree with the implementation.
+// The 25-64 character bound on short_description in particular is documented
+// author guidance, not a rejection threshold anyone has observed. Treat a failure
+// here as "outside what the vendor documents", not "the host will drop this".
+//
+// Note the transport spelling: this file says `streamable_http` where mcp.json
+// says `streamable-http`. Two schemas, two spellings, neither a typo.
+
+const OPENAI_YAML = 'agents/openai.yaml';
+const OPENAI_TOP_LEVEL = new Set(['interface', 'dependencies']);
+const OPENAI_INTERFACE_FIELDS = new Set([
+  'display_name',
+  'short_description',
+  'icon_small',
+  'icon_large',
+  'brand_color',
+  'default_prompt',
+]);
+const OPENAI_TOOL_FIELDS = new Set(['type', 'value', 'description', 'transport', 'url']);
+const OPENAI_TOOL_TYPES = new Set(['mcp']);
+const SHORT_DESCRIPTION_MIN = 25;
+const SHORT_DESCRIPTION_MAX = 64;
+
+// Server names declared in mcp.json, so a per-skill dependency cannot name a
+// server this package does not ship. A dependency pointing at nothing is the
+// quiet failure: the host shows the skill as needing a tool that never connects.
+const declaredServers = new Set(
+  existsSync(mcpPath) ? Object.keys(readJson('mcp.json').mcpServers ?? {}) : [],
+);
+
+if (existsSync(skillsDir) && lstatSync(skillsDir).isDirectory()) {
+  for (const child of readdirSync(skillsDir, { withFileTypes: true })) {
+    if (!child.isDirectory()) continue;
+    const rel = `skills/${child.name}/${OPENAI_YAML}`;
+    const abs = join(ROOT, rel);
+    if (!existsSync(abs)) continue;
+
+    let doc;
+    try {
+      doc = parseYaml(readFileSync(abs, 'utf8'));
+      pass(`${rel} parses as YAML`);
+    } catch (err) {
+      fail(`${rel} parses as YAML`, err.message);
+      continue;
+    }
+    if (doc === null || typeof doc !== 'object' || Array.isArray(doc)) {
+      fail(`${rel} is a mapping`, String(doc));
+      continue;
+    }
+
+    const unknownTop = Object.keys(doc).filter((k) => !OPENAI_TOP_LEVEL.has(k));
+    if (unknownTop.length === 0) {
+      pass(`${rel} declares only documented top-level keys`);
+    } else {
+      fail(`${rel} declares only documented top-level keys`, unknownTop.join(', '));
+    }
+
+    const iface = doc.interface;
+    if (iface !== undefined) {
+      if (typeof iface !== 'object' || iface === null || Array.isArray(iface)) {
+        fail(`${rel} interface is a mapping`, typeof iface);
+      } else {
+        const unknown = Object.keys(iface).filter((k) => !OPENAI_INTERFACE_FIELDS.has(k));
+        if (unknown.length === 0) {
+          pass(`${rel} interface declares only documented fields`);
+        } else {
+          fail(`${rel} interface declares only documented fields`, unknown.join(', '));
+        }
+
+        if (iface.display_name !== undefined) {
+          const ok = typeof iface.display_name === 'string' && iface.display_name.trim().length > 0;
+          if (ok) {
+            pass(`${rel} display_name is a non-empty string`);
+          } else {
+            fail(`${rel} display_name is a non-empty string`, String(iface.display_name));
+          }
+        }
+
+        if (iface.short_description !== undefined) {
+          const d = iface.short_description;
+          const ok =
+            typeof d === 'string' &&
+            d.length >= SHORT_DESCRIPTION_MIN &&
+            d.length <= SHORT_DESCRIPTION_MAX;
+          if (ok) {
+            pass(
+              `${rel} short_description is ${SHORT_DESCRIPTION_MIN}-${SHORT_DESCRIPTION_MAX} chars`,
+              `${d.length} chars`,
+            );
+          } else {
+            fail(
+              `${rel} short_description is ${SHORT_DESCRIPTION_MIN}-${SHORT_DESCRIPTION_MAX} chars`,
+              `${typeof d === 'string' ? `${d.length} chars` : typeof d}`,
+            );
+          }
+        }
+
+        // The reference requires the prompt to name its own skill as
+        // `$skill-name`. A prompt naming a different skill still renders, which
+        // is why it needs checking rather than reading.
+        if (iface.default_prompt !== undefined) {
+          const p = iface.default_prompt;
+          const ok = typeof p === 'string' && p.includes(`$${child.name}`);
+          if (ok) {
+            pass(`${rel} default_prompt references $${child.name}`);
+          } else {
+            fail(`${rel} default_prompt references $${child.name}`, String(p));
+          }
+        }
+
+        if (iface.brand_color !== undefined) {
+          if (HEX_COLOR.test(iface.brand_color)) {
+            pass(`${rel} brand_color is a 6-digit hex colour`);
+          } else {
+            fail(`${rel} brand_color is a 6-digit hex colour`, String(iface.brand_color));
+          }
+        }
+
+        // Icon paths resolve from the SKILL directory, not the plugin root,
+        // which is the trap: ./assets/x.png here is skills/<name>/assets/x.png
+        // and not the package's top-level assets/.
+        for (const field of ['icon_small', 'icon_large']) {
+          if (iface[field] === undefined) continue;
+          const value = iface[field];
+          if (typeof value !== 'string' || !value.startsWith('./')) {
+            fail(`${rel} ${field} starts with "./"`, String(value));
+          } else if (value.split('/').includes('..')) {
+            fail(`${rel} ${field} has no ".." component`, value);
+          } else if (!existsSync(join(skillsDir, child.name, value.slice(2)))) {
+            fail(`${rel} ${field} resolves inside the skill`, value);
+          } else {
+            pass(`${rel} ${field} resolves inside the skill`, value);
+          }
+        }
+      }
+    }
+
+    const deps = doc.dependencies;
+    if (deps !== undefined) {
+      const tools = deps.tools;
+      if (!Array.isArray(tools)) {
+        fail(`${rel} dependencies.tools is an array`, typeof tools);
+      } else {
+        tools.forEach((tool, i) => {
+          const at = `${rel} dependencies.tools[${i}]`;
+          if (typeof tool !== 'object' || tool === null || Array.isArray(tool)) {
+            fail(`${at} is a mapping`, typeof tool);
+            return;
+          }
+
+          const unknown = Object.keys(tool).filter((k) => !OPENAI_TOOL_FIELDS.has(k));
+          if (unknown.length === 0) {
+            pass(`${at} declares only documented fields`);
+          } else {
+            fail(`${at} declares only documented fields`, unknown.join(', '));
+          }
+
+          if (OPENAI_TOOL_TYPES.has(tool.type)) {
+            pass(`${at} type is a supported value`, tool.type);
+          } else {
+            fail(
+              `${at} type is a supported value`,
+              `"${tool.type}"; expected one of ${[...OPENAI_TOOL_TYPES].join(', ')}`,
+            );
+          }
+
+          // The dependency has to name a server this package actually ships, or
+          // the host advertises a tool that can never connect.
+          if (tool.type === 'mcp') {
+            if (declaredServers.has(tool.value)) {
+              pass(`${at} value names a server declared in mcp.json`, tool.value);
+            } else {
+              fail(
+                `${at} value names a server declared in mcp.json`,
+                `"${tool.value}"; mcp.json declares ${[...declaredServers].join(', ') || 'none'}`,
+              );
+            }
+          }
+
+          if (tool.url !== undefined) {
+            let url;
+            try {
+              url = new URL(tool.url);
+            } catch {
+              fail(`${at} url parses`, String(tool.url));
+            }
+            if (url && url.protocol === 'https:') {
+              pass(`${at} url uses HTTPS`);
+            } else if (url) {
+              fail(`${at} url uses HTTPS`, url.protocol);
+            }
+          }
+        });
+      }
+    }
+  }
+}
+
 // --- 5. Marketplace entry (optional) --------------------------------------
 //
 // Present so the repository can be installed by pointing a host at its Git URL
