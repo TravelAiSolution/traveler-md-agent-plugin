@@ -6,3 +6,6 @@ node_modules/
 
 # editors
 .DS_Store
+
+# graphify knowledge graph (derived artifact; embeds audit/review notes)
+graphify-out
