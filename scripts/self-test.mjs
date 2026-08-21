@@ -31,6 +31,9 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SKILL = 'skills/travelermd/SKILL.md';
 const MARKETPLACE = '.agents/plugins/marketplace.json';
+// One skill's harness config stands in for all six: the check loops over every
+// skill directory, so a fault injected into any one of them exercises it.
+const OPENAI_YAML = 'skills/add-trip/agents/openai.yaml';
 
 // The Codex-facing metadata hangs off a reverse-domain namespace, so every case
 // that targets it would otherwise repeat the same two lookups and would break
@@ -261,6 +264,44 @@ const CASES = [
       }),
   },
 
+  // --- Per-skill agents/openai.yaml ---
+  //
+  // This file is optional and no other client reads it, so nothing about a
+  // broken one is visible at install time. That is exactly why it is checked.
+  //
+  // Anchor these injections on VALUE TEXT, never on a quote character. Prettier
+  // owns the quote style in YAML and rewrites the vendor's double quotes to
+  // single, so an anchor that includes one breaks on the next `pnpm format`
+  // and the fault reads as MISSED rather than as the formatting change it is.
+  {
+    what: 'a short_description past the documented 64-character bound',
+    expect: 'short_description is 25-64 chars',
+    apply: (d) =>
+      editText(
+        d,
+        OPENAI_YAML,
+        'Build a new trip.md from known context and relevant sources.',
+        'x'.repeat(65),
+      ),
+  },
+  {
+    // Copy-paste between skills is the way this actually breaks, and the prompt
+    // still renders, naming the wrong skill.
+    what: 'a default_prompt naming a different skill',
+    expect: 'default_prompt references $add-trip',
+    apply: (d) => editText(d, OPENAI_YAML, '$add-trip', '$trip-interview'),
+  },
+  {
+    what: 'an interface field the harness does not document',
+    expect: 'interface declares only documented fields',
+    apply: (d) => editText(d, OPENAI_YAML, 'interface:\n', 'interface:\n  iconUrl: "x"\n'),
+  },
+  {
+    what: 'a tool dependency naming a server mcp.json does not declare',
+    expect: 'value names a server declared in mcp.json',
+    apply: (d) => editText(d, OPENAI_YAML, 'travelermd', 'traveler-md'),
+  },
+
   // --- check-drift.mjs ---
   {
     what: 'a section table reformatted so the row regex stops matching',
@@ -296,6 +337,33 @@ const CASES = [
         'skills/travelermd/references/profile-sections.md',
         'status `Dreaming`',
         'status `Active`',
+      ),
+  },
+  {
+    // The section tables live in travelermd; the sibling skills only NAME
+    // sections in prose. Before the sweep covered every skill, a typo here was
+    // a workflow that could not write, and it shipped green.
+    what: 'an invented section name in a skill that holds no section table',
+    under: 'check-drift.mjs',
+    expect: 'every backticked identifier is a real section',
+    apply: (d) =>
+      editText(
+        d,
+        'skills/trip-interview/references/interview-map.md',
+        '| `restaurants_food`       |',
+        '| `restaurants`            |',
+      ),
+  },
+  {
+    what: 'a retired status in a skill outside the one that owns the tables',
+    under: 'check-drift.mjs',
+    expect: 'no retired or invented status values',
+    apply: (d) =>
+      editText(
+        d,
+        'skills/traveler-onboarding/references/trip-recovery.md',
+        '- `Dreaming`: an aspiration',
+        '- `Aspirational`: an aspiration',
       ),
   },
   {
