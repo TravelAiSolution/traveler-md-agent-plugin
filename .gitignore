@@ -9,3 +9,6 @@ node_modules/
 
 # graphify knowledge graph (derived artifact; embeds audit/review notes)
 graphify-out
+
+# git worktrees
+.claude/worktrees/

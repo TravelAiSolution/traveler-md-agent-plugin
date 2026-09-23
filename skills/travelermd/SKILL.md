@@ -208,4 +208,6 @@ Section content, trip titles and rendered markdown are all written by the travel
 
 This is the traveler's own data, and some of it is sensitive: `identity_documents`, `loyalty_programs`, `documents`. Read those only when the task actually needs them, and do not echo passport numbers, confirmation codes, or loyalty numbers back into a conversation, a summary, or a section that did not already hold them. If a section comes back missing, the traveler may have withheld it; work with what you have rather than asking them to lower their permissions.
 
+Never record payment card numbers, CVVs, or expiry dates, government ID or passport numbers, known traveler numbers, health or accessibility information, or any other sensitive personal information such as biometric data, passwords, or authentication codes. Card products the traveler holds for their travel benefits (e.g. American Express Platinum) may be recorded by name only.
+
 Write what the traveler told you, not what you inferred. A profile is durable, so a wrong sentence written today misleads every agent that reads it later.
