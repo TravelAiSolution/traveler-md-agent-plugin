@@ -4,7 +4,7 @@ Choose sources based on evidence about the trip and the traveler's habits. Prefe
 
 ## Email (Gmail, Outlook and similar)
 
-Use when the source is likely to contain a flight, hotel, rail, rental car, restaurant, ticket, insurance or event confirmation. Search narrowly around destination, dates, provider names, and known event names.
+Use when the source is likely to contain a flight, hotel, rail, rental car, restaurant, ticket or event confirmation. Search narrowly around destination, dates, provider names, and known event names.
 
 ## Calendar (Google Calendar, Outlook and similar)
 

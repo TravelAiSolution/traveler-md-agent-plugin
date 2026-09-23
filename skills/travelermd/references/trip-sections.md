@@ -4,30 +4,30 @@ One trip document per trip. Trip content may override profile defaults freely: a
 
 Section names are exact. Unknown names are rejected. Every section is optional; omit what you are not changing.
 
-| Section                  | Max sentences | What belongs here                                                                                           |
-| ------------------------ | ------------- | ----------------------------------------------------------------------------------------------------------- |
-| `summary`                | 10            | One or two sentences: destination, dates, group, purpose.                                                   |
-| `destinations`           | 20            | Confirmed destinations, or the options still being weighed.                                                 |
-| `dates`                  | 20            | Exact dates if known, otherwise range and flexibility. See the envelope note below.                         |
-| `travelers`              | 20            | Who is going, plus trip-specific detail about the group. See consent note below.                            |
-| `purpose`                | 10            | Why the trip is happening. Emotional or practical context.                                                  |
-| `budget`                 | 30            | Trip budget and tradeoffs. May override profile defaults.                                                   |
-| `accommodation`          | 30            | Where to stay on this trip specifically.                                                                    |
-| `transportation`         | 30            | Ground transport, rental car, airport transfers, walkability, transit, mobility.                            |
-| `flights`                | 30            | Origin, cabin tradeoffs, layover tolerance, airline preferences. Not confirmation numbers.                  |
-| `activities`             | 50            | What they want to do, are considering, or want to avoid.                                                    |
-| `restaurants_food`       | 50            | Restaurants to book, cuisines to prioritize, food tours, markets, dining style.                             |
-| `itinerary`              | 100           | Day-by-day shape. Rough early, more detailed as the trip firms up.                                          |
-| `confirmed_bookings`     | 50            | Public summary of what is booked: provider, dates, type. Not confirmation numbers.                          |
-| `deadlines`              | 30            | Time-sensitive items: booking deadlines, cancellation windows, visa dates, payments.                        |
-| `documents`              | 30            | Confirmation numbers, reservation details, entry requirements, insurance, tickets. **Private, owner-only.** |
-| `during_trip_notes`      | 50            | Notes captured while traveling.                                                                             |
-| `post_trip_learnings`    | 30            | What worked, what did not, what to remember next time.                                                      |
-| `additional_information` | 30            | Anything that fits no other section.                                                                        |
+| Section                  | Max sentences | What belongs here                                                                                                                                                                                   |
+| ------------------------ | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `summary`                | 10            | One or two sentences: destination, dates, group, purpose.                                                                                                                                           |
+| `destinations`           | 20            | Confirmed destinations, or the options still being weighed.                                                                                                                                         |
+| `dates`                  | 20            | Exact dates if known, otherwise range and flexibility. See the envelope note below.                                                                                                                 |
+| `travelers`              | 20            | Who is going, plus trip-specific detail about the group. See consent note below.                                                                                                                    |
+| `purpose`                | 10            | Why the trip is happening. Emotional or practical context.                                                                                                                                          |
+| `budget`                 | 30            | Trip budget and tradeoffs. May override profile defaults.                                                                                                                                           |
+| `accommodation`          | 30            | Where to stay on this trip specifically.                                                                                                                                                            |
+| `transportation`         | 30            | Ground transport, rental car, airport transfers, walkability, transit, mobility.                                                                                                                    |
+| `flights`                | 30            | Origin, cabin tradeoffs, layover tolerance, airline preferences. Not confirmation numbers.                                                                                                          |
+| `activities`             | 50            | What they want to do, are considering, or want to avoid.                                                                                                                                            |
+| `restaurants_food`       | 50            | Restaurants to book, cuisines to prioritize, food tours, markets, dining style.                                                                                                                     |
+| `itinerary`              | 100           | Day-by-day shape. Rough early, more detailed as the trip firms up.                                                                                                                                  |
+| `confirmed_bookings`     | 50            | Public summary of what is booked: provider, dates, type. Confirmation numbers live in `documents`.                                                                                                  |
+| `deadlines`              | 30            | Time-sensitive items: booking deadlines, cancellation windows, visa dates, payments.                                                                                                                |
+| `documents`              | 30            | Booking confirmation numbers, reservation details, ticket references, and entry or visa requirements. Never payment card details, ID numbers, or insurance policy details. **Private, owner-only.** |
+| `during_trip_notes`      | 50            | Notes captured while traveling.                                                                                                                                                                     |
+| `post_trip_learnings`    | 30            | What worked, what did not, what to remember next time.                                                                                                                                              |
+| `additional_information` | 30            | Anything that fits no other section.                                                                                                                                                                |
 
 ## Sections that need care
 
-**Confirmation numbers, PNRs, ticket numbers and payment amounts go in `documents`, nowhere else.** `flights` and `confirmed_bookings` are the public-facing summary of the same bookings: provider, dates, type. Putting a PNR in `confirmed_bookings` moves private data into a section with a wider audience.
+**Confirmation numbers, PNRs and ticket numbers go in `documents`, nowhere else.** `flights` and `confirmed_bookings` are the public-facing summary of the same bookings: provider, dates, type. Putting a PNR in `confirmed_bookings` moves private data into a section with a wider audience.
 
 **`travelers` may name other people.** Populate named individuals only when the traveler has explicitly given those names in context for this purpose.
 

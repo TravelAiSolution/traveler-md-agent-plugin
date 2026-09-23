@@ -18,7 +18,7 @@ Use this map to decide where a confirmed answer belongs. It is not a questionnai
 | `itinerary`              | Day by day, or the rough shape of the trip                               |
 | `confirmed_bookings`     | Public booking summary only                                              |
 | `deadlines`              | Time-sensitive booking, cancellation, visa or payment dates              |
-| `documents`              | Private confirmations, and entry, insurance or ticket detail             |
+| `documents`              | Private confirmations, and entry/visa and ticket detail                  |
 | `during_trip_notes`      | Notes taken while travelling                                             |
 | `post_trip_learnings`    | What the traveler concluded afterwards                                   |
 | `additional_information` | Only when no more specific section fits                                  |

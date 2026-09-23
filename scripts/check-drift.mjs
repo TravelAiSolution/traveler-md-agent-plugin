@@ -293,7 +293,7 @@ function compareScopes(file, scopes) {
   const text = read(join(SKILL_DIR, file));
   const rows = text.split('\n').filter((l) => l.startsWith('|'));
   const unflagged = names.filter((name) => {
-    const row = rows.find((l) => l.includes(`\`${name}\``));
+    const row = rows.find((l) => l.startsWith(`| \`${name}\``));
     return !row || !/private/i.test(row);
   });
   if (unflagged.length === 0) {
