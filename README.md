@@ -140,7 +140,7 @@ Connecting the server takes one line of configuration. Using it correctly is har
 - Sending a section as `[]`, which erases it. The server refuses this without an explicit `allow_clear_sections`, and the skill says why the flag is not something to set pre-emptively.
 - Exceeding a per-section sentence cap.
 - Writing trip specifics into the durable profile, which pollutes every later trip.
-- Omitting `sections` on a create or profile update, which the published schema does not mark required but the server rejects anyway.
+- Omitting required profile sections or confusing optional trip sections with the trip envelope.
 - Reading an empty `list_trips` page that still carries a `next_cursor` as "no such trip", when it means "nothing on this page".
 
 The skill documents each of these. It ships in the same package as the server config, so an agent has the rules before its first write.
@@ -197,14 +197,7 @@ needs updating too, alongside the fixture.
 Bump `plugin.json` `version` on any content change: clients use it for update checks and cache
 freshness.
 
-Two behaviours the skill documents are properties of the running server rather than of its published
-schemas, so they will not show up in a schema diff and the drift check cannot see them:
-
-- **Unknown top-level arguments are dropped rather than rejected**, so a misspelled argument name
-  yields a successful-looking result that changed nothing. This is why the skill tells agents to
-  verify a write via `changes`. Unknown _section_ names inside `sections` are rejected normally.
-- **`CONFLICT` recovery detail arrives in the error message rather than in a structured field**, which
-  is why the skill tells agents to read the message for the current hash.
+The skill also documents behavior beyond the section tables: strict argument validation, section-only change reports, structured trip events, and safe handling of private identifiers. Verify these claims against the tool schemas and observed responses when updating the plugin.
 
 ## Contributing
 

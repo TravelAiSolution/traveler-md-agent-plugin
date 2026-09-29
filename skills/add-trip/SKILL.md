@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires network access and a one-time OAuth authorization to https://mcp.traveler.md/mcp
 metadata:
   author: TravelAI
-  version: '1.1.0'
+  version: '1.1.1'
 ---
 
 # Add Trip
@@ -22,7 +22,7 @@ Build the best available trip.md from information the traveler already has befor
 6. Retrieve only trip-relevant context from approved sources. Search narrowly using destination, dates, event, client or conference names, known travelers, booking providers, or other concrete trip anchors. Do not perform broad unrelated mailbox, document or chat sweeps.
 7. Reconcile the evidence. Separate confirmed facts, tentative plans, inferred details, and contradictions. Never turn an inference into a confirmed booking or an exact date.
 8. If no matching trip exists, create it with `create_trip`, choosing the status the evidence supports. If a matching trip exists, call `read_trip` before updating it and carry every existing sentence forward in any section you replace.
-9. Write only information appropriate to trip.md. Keep private confirmations and identifiers in `documents`, public booking summaries in `confirmed_bookings`, and durable cross-trip preferences in the traveler.md profile rather than the trip.
+9. Write only information appropriate to trip.md. Store stated bookings as structured events. Keep permitted private document context in `documents`. Keep secrets out of all fields. Put durable cross-trip preferences in the Traveler.md profile.
 10. Summarize what was added, what remains uncertain, and which sources contributed. If meaningful gaps remain, offer to continue with the `trip-interview` workflow rather than immediately launching a generic questionnaire.
 
 ## Source-aware behavior
@@ -55,9 +55,9 @@ The read and write mechanics are not repeated here. Read [../travelermd/SKILL.md
 Four traps this workflow can hit:
 
 - **A section you send replaces that section wholesale.** There is no append. Read, merge, then write. Sending only the new sentence deletes the rest of the section.
-- **Some writes require `sections`** even though the published schema does not mark it required. `tools.md` says which.
+- **Use the tool schema for required arguments.** See `tools.md` for profile and trip write requirements.
 - **Emptying a section needs `allow_clear_sections: true`**, naming every section it would empty. Omit a section to leave it untouched.
-- **Check the `changes` object on every write.** An unknown top-level argument name is dropped rather than rejected, so a misspelled field returns a successful-looking response that changed nothing.
+- **Verify the returned fields after a write.** `changes` describes section-text edits only. A status-only or event-record-only update can succeed without it. Unknown argument names are rejected. See the mechanics skill for verification and recovery.
 
 Each section has its own sentence cap, and going over it is a validation error naming the section and the cap. Consolidate into fewer, denser sentences rather than truncating. The caps are in the two section references.
 
