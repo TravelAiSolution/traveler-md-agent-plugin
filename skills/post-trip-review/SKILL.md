@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires network access and a one-time OAuth authorization to https://mcp.traveler.md/mcp
 metadata:
   author: TravelAI
-  version: '1.1.0'
+  version: '1.1.1'
 ---
 
 # Post Trip Review
@@ -48,9 +48,9 @@ The read and write mechanics are not repeated here. Read [../travelermd/SKILL.md
 Four traps this workflow can hit:
 
 - **A section you send replaces that section wholesale.** There is no append. Read, merge, then write. Promoting a lesson into a profile section that already has content, by sending only the new sentence, deletes everything the traveler had recorded there.
-- **Some writes require `sections`** even though the published schema does not mark it required. `tools.md` says which, and a status-only flip to `Completed` is the case to check there before assuming it needs a section payload at all.
+- **Use the tool schema for required arguments.** See `tools.md` for profile and trip write requirements.
 - **Emptying a section needs `allow_clear_sections: true`**, naming every section it would empty. Omit a section to leave it untouched.
-- **Check the `changes` object on every write.** An unknown top-level argument name is dropped rather than rejected, so a misspelled field returns a successful-looking response that changed nothing.
+- **Verify the returned fields after a write.** `changes` describes section-text edits only. A status-only or event-record-only update can succeed without it. Unknown argument names are rejected. See the mechanics skill for verification and recovery.
 
 Each section has its own sentence cap, and going over it is a validation error naming the section and the cap. A profile section that is already at its cap is a signal to merge a related sentence rather than to drop the oldest one. The caps are in the two section references.
 

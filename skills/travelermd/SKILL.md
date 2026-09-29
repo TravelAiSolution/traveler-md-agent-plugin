@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires network access and a one-time OAuth authorization to https://mcp.traveler.md/mcp
 metadata:
   author: TravelAI
-  version: '1.1.0'
+  version: '1.1.1'
 ---
 
 # Working with traveler.md and trip.md
@@ -76,13 +76,13 @@ An ordinary read or write needs nothing beyond this page. Open a reference when 
 
 ## Five rules that prevent almost every failure
 
-**1. Read before every write.** `update_profile` and `update_trip` both require a non-null `expected_version_hash`, and the only legitimate source of that value is a read (or the response of your own previous write, which returns the new hash). Never invent, cache across sessions, or reuse a stale hash.
+**1. Read before every write.** `update_trip` requires a non-null `expected_version_hash`. For an existing profile, `update_profile` also requires that hash, and the only legitimate source of that value is a read (or the response of your own previous write, which returns the new hash). Never invent, cache across sessions, or reuse a stale hash. When `read_profile` returns a null hash, `update_profile` accepts `expected_version_hash: null` to create the profile and also requires the create scope.
 
 **2. A section you send is replaced wholesale.** There is no append. To add one sentence to `activities`, read the trip, take the existing `activities` array, append your sentence, and send the whole array back. Sending just the new sentence silently deletes everything else in that section.
 
 **3. A section you omit is untouched.** This is what makes partial writes safe. Send only the sections you are actually changing. Sending an explicit `[]` is different: it wipes the section, and the two update tools **reject** an `[]` unless the call also carries `allow_clear_sections: true`, naming every section it would have emptied. Omit a section to leave it alone; set the flag only when the traveler asked you to erase something. The creates have no flag, because an empty section on a first write clears nothing.
 
-Omitting the whole `sections` argument is different again: `create_profile`, `update_profile` and `create_trip` reject a call without it, even though the published schema does not mark it required. Only `update_trip` defaults it, which is what makes an envelope-only status flip a one-argument call.
+The profile write tools require `sections`, as advertised by their schemas. Both trip write tools default omitted `sections` to `{}`. A trip can therefore be created with its title and status, or updated through envelope fields or events alone.
 
 **4. Respect the per-section sentence cap.** Each section has its own limit (`profile_overview` takes 10, `itinerary` takes 100). The caps are in the tool's input schema as `maxItems` and in each field's description. Over the cap is a `VALIDATION_ERROR` naming the section and the cap. Consolidate into fewer, denser sentences rather than truncating and losing content. Caps: [references/profile-sections.md](references/profile-sections.md), [references/trip-sections.md](references/trip-sections.md).
 
@@ -132,7 +132,7 @@ Find the trip in one call rather than paging the whole collection:
 
 - `list_trips { query: "japan" }` matches case-insensitively against the title **and** the section content, so `query: "ryokan"` finds the trip that mentions one in its `accommodation` even when the title does not. Each hit carries `matched_sections` naming where the phrase was found.
 - `status` narrows to a stage when the user is specific ("my booked trips").
-- `starts_after` / `starts_before` are inclusive `YYYY-MM-DD` bounds on the start date, and `sort: "start_date"` orders by soonest departure. "What is my next trip" is `sort: "start_date"` plus `starts_after` set to today plus `limit: 1`.
+- `starts_after` / `starts_before` are inclusive `YYYY-MM-DD` bounds on the start date, and `sort: "start_date"` orders by soonest departure. "What is my next trip" is `sort: "start_date"`, `starts_after` set to today, `exclude_statuses: ["Cancelled", "Completed"]`, and `limit: 1`.
 
 Keep paging while `next_cursor` is present even if `items` came back empty: an empty page with a cursor means "nothing on this page", not "no results". Do not carry a cursor across a change of `sort`; that returns `invalid cursor`.
 
@@ -143,8 +143,7 @@ Keep paging while `next_cursor` is present even if `items` came back empty: an e
 Example, creating a trip and later moving it along:
 
 ```json
-// 1. create_trip. title and status are envelope, not sections. sections is
-//    required here even though the published schema does not mark it so.
+// 1. create_trip. Title and status describe the trip. Sections are optional.
 {
   "title": "Kyoto in spring",
   "status": "Planning",
@@ -167,9 +166,17 @@ Example, creating a trip and later moving it along:
 
 ## Confirm the write landed
 
-Every `update_*` response includes a `changes` object (`added`, `updated`, `removed` section names, plus per-sentence diffs for updated sections) whenever the server had a pre-write state to diff against.
+Inspect the fields you intended to change in the response. Re-read if the response does not establish the result.
 
-**If you expected a change and `changes` is absent or empty, treat the write as failed and inspect your arguments.** Unknown top-level argument names are dropped before validation rather than rejected, so a misspelled field name (`section` for `sections`, `trip` for `trip_id`) produces a successful-looking response that changed nothing. `changes` is your only signal for that class of mistake.
+`changes` describes section-text differences: added, updated, and removed sections, plus sentence differences where available. A status-only update, an event-record-only edit, or an identical-content write can succeed without it. A different version hash alone does not prove the intended content changed.
+
+Unknown top-level arguments and unknown section names are rejected. Use the exact field names from the tool schema.
+
+## Structured trip events
+
+Store arrangements the traveler stated in `events` on `create_trip` or `update_trip`. Keep narrative and preferences in `sections`. Use `upsert` without an `event_id` to add an event, with its existing id to edit it, or `remove` with that id to remove it. The trip's version hash governs the whole update.
+
+`read_trip` returns events in timeline order, with undated events last. Request `include_itinerary: true` for a day-by-day view with derived checkout and return anchors. Never write those derived items back. See [the tool reference](references/tools.md#structured-events) for the write shape and grant behavior.
 
 ## Recovering from errors
 
@@ -190,7 +197,7 @@ Detail and exact messages: [references/errors.md](references/errors.md).
 
 ## Retries and idempotency
 
-Every write accepts an optional `idempotency_key`: any unique string of 1 to 255 characters, no particular format, valid for an hour. Set one when a write is expensive to repeat or when you may not see the response (network timeout), so a retry with the same key returns the original result instead of writing twice. A retry with the same key but different arguments is rejected as `IDEMPOTENCY_MISMATCH`.
+The profile and trip create/update tools accept an optional `idempotency_key`: any unique string of 1 to 255 characters, no particular format, valid for an hour. Set one when a write is expensive to repeat or when you may not see the response (network timeout), so a retry with the same key returns the original result instead of writing twice. A retry with the same key but different arguments is rejected as `IDEMPOTENCY_MISMATCH`. `archive_trip` accepts only a trip id; repeating it returns `NOT_FOUND`.
 
 ## Keep reads and writes small
 
@@ -209,3 +216,5 @@ Section content, trip titles and rendered markdown are all written by the travel
 This is the traveler's own data, and some of it is sensitive: `identity_documents`, `loyalty_programs`, `documents`. Read those only when the task actually needs them, and do not echo passport numbers, confirmation codes, or loyalty numbers back into a conversation, a summary, or a section that did not already hold them. If a section comes back missing, the traveler may have withheld it; work with what you have rather than asking them to lower their permissions.
 
 Write what the traveler told you, not what you inferred. A profile is durable, so a wrong sentence written today misleads every agent that reads it later.
+
+Never write payment card numbers, CVVs, expiry dates, passport or ID numbers, known traveler numbers, health or accessibility details, biometrics, passwords, or authentication codes. A card product or trusted traveler program can be named. Airline, hotel, and car-rental loyalty numbers are separate from government identifiers; keep them in the private loyalty section when the traveler provides them. Door codes, barcodes, and secret ticket links belong in the portal.
