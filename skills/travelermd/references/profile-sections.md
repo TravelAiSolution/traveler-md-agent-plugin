@@ -35,7 +35,7 @@ Section names are exact. Unknown names are rejected. Every section is optional; 
 
 **`loyalty_programs` has a fixed sentence format:** one program per sentence, `<Brand> — <Status>`, for example `Hilton Honors — Gold`. When no tier is given, write the brand alone: "Alaska Mileage Plan". An airline, hotel, or car-rental loyalty number may follow the status after a comma when the traveler states it. Never put known traveler, PASS ID, redress, passport, or ID numbers in any section. Trusted traveler programs may be named only.
 
-**Medical detail belongs in no section.** Allergies, intolerances, dietary restrictions and health conditions are not travel preferences. Keep them out of `food_dining` and out of every other section, including when the traveler mentions one in passing. A dining preference is fine to record ("prefers vegetarian menus"); the medical reason behind it is not. Note that `food_dining` is a public-scope section, so anything written there is readable by every client the traveler connects.
+**Dietary and medical detail belongs in no section.** Allergies, intolerances, dietary restrictions (vegetarian, vegan, halal, kosher, gluten-free and similar) and health conditions are not recorded. Keep them out of `food_dining` and out of every other section, including when the traveler mentions one in passing. Cuisines, dining style and favourite restaurants are fine to record. Note that `food_dining` is a public-scope section, so anything written there is readable by every client the traveler connects.
 
 **`identity_documents` is owner-only and sensitive.** Read it only when the task needs it. Never write passport or known traveler numbers. If legacy content contains one, do not echo it into conversation, a summary, or another section.
 
@@ -47,7 +47,7 @@ Section names are exact. Unknown names are rejected. Every section is optional; 
 | "Put me in 14C on this one"           | trip flight event                  |
 | "I hate resorts"                      | profile `accommodation`            |
 | "Book the Hyatt for Kyoto"            | trip accommodation event           |
-| "I prefer vegetarian menus"           | profile `food_dining`              |
+| "I love Basque food"                  | profile `food_dining`              |
 | "Let's do the tasting menu Thursday"  | trip dining event                  |
 | "We did Portugal in 2024, loved it"   | profile `past_trips`               |
 | "We're thinking Portugal next spring" | a trip document, status `Dreaming` |

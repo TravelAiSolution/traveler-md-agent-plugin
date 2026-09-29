@@ -113,7 +113,7 @@ Example, adding a dining preference to a profile that already exists:
   "sections": {
     "food_dining": [
       "Loves regional street food.",
-      "Prefers vegetarian menus, and asks for one standout dinner per trip."
+      "Prefers small neighbourhood restaurants, and books one standout dinner per trip."
     ]
   },
   "expected_version_hash": "9f2c...e41a"
@@ -217,4 +217,4 @@ This is the traveler's own data, and some of it is sensitive: `identity_document
 
 Write what the traveler told you, not what you inferred. A profile is durable, so a wrong sentence written today misleads every agent that reads it later.
 
-Never write payment card numbers, CVVs, expiry dates, passport or ID numbers, known traveler numbers, health or accessibility details, biometrics, passwords, or authentication codes. A card product or trusted traveler program can be named. Airline, hotel, and car-rental loyalty numbers are separate from government identifiers; keep them in the private loyalty section when the traveler provides them. Door codes, barcodes, and secret ticket links belong in the portal.
+Never write payment card numbers, CVVs, expiry dates, passport or ID numbers, social security numbers, known traveler numbers, door or access codes, health or accessibility details, dietary restrictions, biometrics, passwords, or authentication codes. The server rejects a write whose sections or events contain a payment card number, a passport number, a known traveler number, a social security number, or a door or access code, and the message names the section and the kind of data but not the value. Remove the number and resend. A card product or trusted traveler program can be named. Airline, hotel, and car-rental loyalty numbers are separate from government identifiers; keep them in the private loyalty section when the traveler provides them. Door codes, barcodes, and secret ticket links belong in the portal.
