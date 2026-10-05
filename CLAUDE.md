@@ -135,7 +135,8 @@ someone has forked or cloned, a rewrite reaches nothing. Get it right the first 
   regenerate a mark here.
   Known limitation: the icon is a black glyph on a transparent background, so it reads poorly on a
   dark install surface, and an OpenAI host gives `composerIcon` no dark counterpart the way it does
-  `logo`. A light-ground icon has to arrive as a brand asset; it is not something to invent here.
+  `logo`. Cursor uses the same icon as its listing logo, with the same problem on a dark theme. A
+  light-ground icon has to arrive as a brand asset; it is not something to invent here.
 - **`extensions["com.openai"]` carries presentation only.** An OpenAI host reads `interface`, `apps`
   and `hooks` from that namespace and ignores everything else. Keep it to `interface`: `apps` and
   `hooks` would make the package's behaviour depend on which client installed it, and hooks are
