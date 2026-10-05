@@ -1,10 +1,8 @@
 # Error reference
 
-Every tool rejection arrives as an MCP tool error carrying one of the codes below. The code set is closed: anything unexpected is `INTERNAL`. One rejection is different in kind and never reaches the tool at all: see `RATE_LIMITED`.
+Tool rejections set `isError: true`. Use a structured error code and recovery details when the client provides them. Otherwise, read the message to identify the rejection and its remedy. The classifications below describe those recovery cases.
 
-The recovery instruction is in the **message**. Read it. The structured `data` envelope is not delivered to MCP clients on the tool path, so the message is where every actionable detail lives: the current version hash on a conflict, and the offending field paths on a validation error.
-
-The message may arrive prefixed with a JSON-RPC code, as in `MCP error -32602: validation error ...`. That number is transport bookkeeping and not the code set below. Do not branch on it, and do not report it to the traveler; read the text after it.
+A JSON-RPC numeric code is transport bookkeeping. Do not use it as a domain error code or report it to the traveler. HTTP rate limits happen before the tool runs; see `RATE_LIMITED`.
 
 ## CONFLICT
 
@@ -31,11 +29,11 @@ Never retry with the same hash that just failed.
 
 Message names a duplicate slug and carries **no** hash. The absence of a hash is how you tell it apart from an OCC conflict.
 
-Recovery: retry with a different `slug`, or a different `title` if you let the server derive the slug. A hash cannot help here.
+Recovery: retry with a different `slug`, or omit `slug` and let the server derive one. A derived slug never collides. A hash cannot help here.
 
 ## VALIDATION_ERROR
 
-Your arguments did not satisfy the schema. The offending fields are rendered into the message, as `validation error — <field>: <reason>; <field>: <reason>`, where a field is the argument path (`sections.itinerary`, `start_date`, or `input` when the whole argument object is wrong). At most five are named; the rest are counted as `(and N more field errors)`, and a very long list is truncated. Fix the ones you are told about and retry; the remainder surface on the next attempt.
+Your arguments did not satisfy the schema. The offending fields are rendered into the message, as `validation error — <field>: <reason>; <field>: <reason>`, where a field is the argument path (`sections.itinerary`, `start_date`, or `input` when the whole argument object is wrong). The server can truncate a long list of field errors. Fix the ones you are told about and retry; the remainder surface on the next attempt.
 
 Common causes and fixes:
 
@@ -53,7 +51,7 @@ Common causes and fixes:
 
 Fix the argument and retry once. An unchanged retry will fail identically.
 
-Cross-field refusals, of which the clear-sections guard is the only one today, are reported ahead of ordinary field errors so they cannot be pushed past the five-issue cap.
+Validation messages can be truncated. Fix the reported fields, preserve the requested content, and retry once. A write that contains a payment card number, passport number, known traveler number, social security number, or door or access code is rejected as `sensitive data rejected in <section> (<kind>)`. Remove the number and resend. The sentence can still name the passport country, the card product or the trusted traveler program.
 
 ## FORBIDDEN
 

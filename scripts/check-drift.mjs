@@ -163,6 +163,14 @@ const KNOWN_VOCABULARY = new Set([
   'allow_clear_sections',
   'idempotency_key',
   'include_markdown',
+  'include_itinerary',
+  'destination',
+  'exclude_statuses',
+  'events',
+  'event_id',
+  'upsert',
+  'remove',
+  'null',
   'trip_id',
   'title',
   'status',
@@ -314,4 +322,6 @@ console.log(
   `\n${results.length - failures.length}/${results.length} drift checks passed` +
     (failures.length ? ` — ${failures.length} FAILED` : ''),
 );
-process.exit(failures.length ? 1 : 0);
+// exitCode, not exit(): exit() can drop buffered stdout when piped, which loses
+// the FAIL lines the self-test reads.
+process.exitCode = failures.length ? 1 : 0;

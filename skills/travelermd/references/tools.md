@@ -1,32 +1,29 @@
 # Tool reference
 
-Eight tools. Every argument name is `snake_case`. Unknown top-level argument names are dropped before validation rather than rejected, so a typo produces a successful-looking no-op: check `changes` on the response (see SKILL.md, "Confirm the write landed").
+Eight tools. Every argument name is `snake_case`. Unknown top-level argument names and unknown section names are rejected. Verify the returned fields after a write; `changes` covers section text only.
 
 ## Shared value formats
 
-| Value                                   | Format                                                                                                              |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `version_hash`, `expected_version_hash` | 64-character lowercase hex (SHA-256). Pass back verbatim.                                                           |
-| `trip_id`                               | UUID                                                                                                                |
-| `start_date`, `end_date`                | ISO-8601 date, `YYYY-MM-DD`. Nullable.                                                                              |
-| `status`                                | Exactly one of `Dreaming`, `Planning`, `Booking`, `Booked`, `Trip In Progress`, `Completed`, `Cancelled`, `On Hold` |
-| `slug`                                  | kebab-case, `a-z0-9-`, must start and end alphanumeric, max 255                                                     |
-| A sentence                              | Single-line string, 1 to 1000 characters. No newlines.                                                              |
-| `sections`                              | Object of `section_name -> string[]`. Only spec section names.                                                      |
-| `cursor`                                | Opaque signed string from `next_cursor`. Never construct or edit one.                                               |
-| `include_markdown`                      | Optional boolean, defaults to `false` on every read and write                                                       |
-| `idempotency_key`                       | Optional string, any unique value of 1 to 255 characters. It need not be a UUID; a short random token is fine.      |
-| `allow_clear_sections`                  | Optional boolean on the two update tools, defaults to `false`. Required to send any section as `[]`.                |
+| Value                                   | Format                                                                                                                 |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `version_hash`, `expected_version_hash` | 64-character lowercase hex (SHA-256). Pass back verbatim.                                                              |
+| `trip_id`                               | UUID                                                                                                                   |
+| `start_date`, `end_date`                | ISO-8601 date, `YYYY-MM-DD`. Nullable.                                                                                 |
+| `destination`                           | Where the trip goes, at least where it starts, as the traveler named it. Never a hotel. 1 to 500 characters. Nullable. |
+| `status`                                | Exactly one of `Dreaming`, `Planning`, `Booking`, `Booked`, `Trip In Progress`, `Completed`, `Cancelled`, `On Hold`    |
+| `slug`                                  | kebab-case, `a-z0-9-`, must start and end alphanumeric, max 255                                                        |
+| A sentence                              | Single-line string, 1 to 1000 characters. No newlines.                                                                 |
+| `sections`                              | Object of `section_name -> string[]`. Only spec section names.                                                         |
+| `cursor`                                | Opaque signed string from `next_cursor`. Never construct or edit one.                                                  |
+| `include_markdown`                      | Optional boolean, defaults to `false` on every read and write                                                          |
+| `idempotency_key`                       | Optional string, any unique value of 1 to 255 characters. It need not be a UUID; a short random token is fine.         |
+| `allow_clear_sections`                  | Optional boolean on the two update tools, defaults to `false`. Required to send any section as `[]`.                   |
 
 `spec_version` and `renderer_version` come back on every read and write. They tell you which document spec produced the response; you do not send them.
 
-## `sections` is required where this reference says so, even though the schema disagrees
+## Required sections
 
-`create_profile`, `update_profile` and `create_trip` all reject a call that omits `sections`, with `VALIDATION_ERROR` and the issue `sections: expected object, received undefined`. The published input schema does **not** list `sections` in its `required` array for those three tools, so a client that trusts the schema alone will omit it and fail. Always send `sections`, even when the only thing you are changing is an envelope field.
-
-This is a server-side defect, not a design decision, and it is tracked. When it is fixed the schema will advertise `sections` as required and this note goes away, so treat it as temporary.
-
-`update_trip` is the exception and genuinely optional: it defaults `sections` to `{}`, which is what makes an envelope-only status flip a one-argument call.
+`create_profile` and `update_profile` require `sections`, and their schemas advertise that requirement. `create_trip` and `update_trip` default omitted `sections` to `{}`. Trip envelope-only and event-only writes need no section payload.
 
 ## Clearing a section takes `allow_clear_sections`
 
@@ -68,17 +65,19 @@ If a profile already exists this returns `CONFLICT` and the message names the cu
 
 Scope `profile.update`.
 
-- **In:** `sections` (required), `expected_version_hash` (required, non-null), `allow_clear_sections?`, `idempotency_key?`, `include_markdown?`
+- **In:** `sections` (required), `expected_version_hash` (required, nullable), `allow_clear_sections?`, `idempotency_key?`, `include_markdown?`
 - **Out:** as `create_profile`, plus `changes?`
+
+A null expected hash asserts that no profile exists and creates one. This also requires scope `profile.create`. Use the hash from `read_profile` for an existing profile.
 
 ## list_trips
 
 Scope `trip.list`. Archived trips never appear.
 
-- **In:** `cursor?`, `limit?` (1 to 100, default 20), `status?`, `query?`, `starts_after?`, `starts_before?`, `sort?`
+- **In:** `cursor?`, `limit?` (1 to 100, default 20), `status?`, `exclude_statuses?`, `query?`, `starts_after?`, `starts_before?`, `sort?`
 - **Out:** `items[]`, `next_cursor` (nullable, null on the last page)
 
-Each item: `trip_id`, `slug`, `title`, `status`, `start_date`, `end_date`, `updated_at`, `card_color?`, `matched_sections?`. Items carry no section content; use `read_trip` for that.
+Each item: `trip_id`, `slug`, `title`, `status`, `start_date`, `end_date`, `destination`, `updated_at`, `card_color?`, `matched_sections?`. Items carry no section content; use `read_trip` for that.
 
 Filters and ordering:
 
@@ -91,7 +90,7 @@ Filters and ordering:
 
 `matched_sections` carries section names only, never the matching text. Read the content with `read_trip`.
 
-"What is my next trip" is one call: `sort: "start_date"`, `starts_after` set to today, `limit: 1`.
+"What is my next trip" is one call: `sort: "start_date"`, `starts_after` set to today, `exclude_statuses: ["Cancelled", "Completed"]`, `limit: 1`. Excluded statuses compose with the other filters.
 
 ### Paging
 
@@ -103,8 +102,8 @@ Cursors are signed. A hand-built or edited cursor returns `VALIDATION_ERROR: inv
 
 Scope `trip.read`.
 
-- **In:** `trip_id` (required), `include_markdown?`
-- **Out:** `trip_id`, `slug`, `title`, `status`, `start_date`, `end_date`, `sections`, `version_hash` (nullable), `spec_version`, `renderer_version`, `rendered_markdown?`, `card_color?`
+- **In:** `trip_id` (required), `include_markdown?`, `include_itinerary?`
+- **Out:** `trip_id`, `slug`, `title`, `status`, `start_date`, `end_date`, `destination`, `sections`, `version_hash` (nullable), `spec_version`, `renderer_version`, `rendered_markdown?`, `card_color?`, `events`, `itinerary?`
 
 An archived or unknown `trip_id` returns `NOT_FOUND`.
 
@@ -112,16 +111,16 @@ An archived or unknown `trip_id` returns `NOT_FOUND`.
 
 Scope `trip.create`.
 
-- **In:** `title` (required), `status` (required), `sections` (required), `slug?`, `start_date?`, `end_date?`, `idempotency_key?`, `include_markdown?`
+- **In:** `title` (required), `status` (required), `sections?`, `events?`, `slug?`, `start_date?`, `end_date?`, `destination?`, `idempotency_key?`, `include_markdown?`
 - **Out:** the `read_trip` shape plus a non-null `version_hash`
 
-`title` and `status` are required because the envelope cannot be derived from section text. Omit `slug` and the server derives one from the title. A duplicate active slug returns `CONFLICT` with no hash in it: retry with a different slug or title.
+`title` and `status` are required because the envelope cannot be derived from section text. Omit `slug` and the server derives one from the title, adding a suffix when that slug is already taken. A derived slug never collides, so a retried `create_trip` without an `idempotency_key` creates a second trip. Always send one. An explicit `slug` that duplicates an active trip returns `CONFLICT` with no hash in it: retry with a different slug, or omit it.
 
 ## update_trip
 
 Scope `trip.update`.
 
-- **In:** `trip_id` (required), `expected_version_hash` (required, non-null), `sections?` (defaults to `{}`), `title?`, `slug?`, `status?`, `start_date?`, `end_date?`, `allow_clear_sections?`, `idempotency_key?`, `include_markdown?`
+- **In:** `trip_id` (required), `expected_version_hash` (required, non-null), `sections?` (defaults to `{}`), `events?`, `title?`, `slug?`, `status?`, `start_date?`, `end_date?`, `destination?`, `allow_clear_sections?`, `idempotency_key?`, `include_markdown?`
 - **Out:** as `create_trip`, plus `changes?`
 
 Envelope fields and sections can change in the same call. An envelope-only change (a status flip) needs no `sections`.
@@ -145,7 +144,7 @@ Three consequences:
 
 ## The `changes` object
 
-Present on `update_profile` and `update_trip` when the server had a pre-write state to diff:
+Present on `update_profile` and `update_trip` when section text differs from the pre-write state:
 
 ```json
 {
@@ -163,4 +162,36 @@ Present on `update_profile` and `update_trip` when the server had a pre-write st
 - `removed`: the write emptied a section that had content
 - `sentences`: line-level diff for updated sections
 
-A write that changed nothing omits `changes` entirely. If you expected a change, that means your write did not do what you intended.
+A status-only update or an event-record-only edit can omit `changes` even when the write succeeds. Check the returned envelope, sections, and events. Re-read when needed. A changed version hash is a concurrency token, not proof of the intended edit.
+
+## Structured events
+
+The trip write tools accept an `events` array. Each item has an operation:
+
+- `upsert`: send a kind, title, and start value. Omit the event id to create; include an existing id from this trip to edit. A null start means undated.
+- `remove`: send the event id to remove that event and its owned sentence.
+
+For example, an event payload inside a trip write:
+
+```json
+{
+  "events": [
+    {
+      "op": "upsert",
+      "kind": "accommodation",
+      "title": "Hotel stay",
+      "start": { "date": "2027-04-02", "time": "15:00", "tz": "Europe/Paris" },
+      "end": { "date": "2027-04-04", "time": "11:00", "tz": "Europe/Paris" },
+      "status": "booked"
+    }
+  ]
+}
+```
+
+Use the schema for allowed kinds, subtypes, and optional fields. Send only what the traveler stated. Updates require the trip's expected version hash, including event-only updates. Put the idempotency key at the top level of the call.
+
+Each event owns a sentence in the trip. Edit it through its event id instead of overwriting that sentence in a section. If a response identifies an arrangement as unstructured prose, add its event and remove the old prose line in the same update. Preserve notes and preferences as prose.
+
+`read_trip` returns flat events. `include_itinerary: true` adds grouped days and derived anchors. Write responses include events when event operations were sent; re-read for a complete timeline when needed.
+
+Structured events require the traveler to grant itinerary access. A forbidden mixed update writes neither its prose nor its events. Explain the missing access instead of claiming the booking was saved.

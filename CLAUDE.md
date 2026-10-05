@@ -15,6 +15,7 @@ skills/travelermd/           # the mechanics skill: SKILL.md + references/
 skills/<workflow>/           # six workflow skills, each SKILL.md + its own references/
 assets/                      # brand marks referenced by the install-surface metadata
 .agents/plugins/             # marketplace entry: distribution, not a plugin component
+.cursor-plugin/plugin.json   # Cursor listing metadata only: displayName + logo
 scripts/                     # validation tooling ONLY, not part of the plugin
 ```
 
@@ -134,13 +135,21 @@ someone has forked or cloned, a rewrite reaches nothing. Get it right the first 
   regenerate a mark here.
   Known limitation: the icon is a black glyph on a transparent background, so it reads poorly on a
   dark install surface, and an OpenAI host gives `composerIcon` no dark counterpart the way it does
-  `logo`. A light-ground icon has to arrive as a brand asset; it is not something to invent here.
+  `logo`. Cursor uses the same icon as its listing logo, with the same problem on a dark theme. A
+  light-ground icon has to arrive as a brand asset; it is not something to invent here.
 - **`extensions["com.openai"]` carries presentation only.** An OpenAI host reads `interface`, `apps`
   and `hooks` from that namespace and ignores everything else. Keep it to `interface`: `apps` and
   `hooks` would make the package's behaviour depend on which client installed it, and hooks are
   non-managed, so a host prompts the traveler to trust them before anything runs. Nothing portable
   goes in a vendor namespace, and no second manifest: a `.codex-plugin/plugin.json` would restate
   `name` and `version` with nothing keeping them in step, and the `extensions` entry wins anyway.
+- **`.cursor-plugin/plugin.json` is the one second manifest, and it is listing metadata only.**
+  Cursor loads the root `plugin.json` as an Agent Plugin but takes `displayName` and `logo` only
+  from this file, and its loader prefers this file when both exist. Keep it to the shared fields
+  plus those two: a component path here would point Cursor at different skills or MCP config than
+  every other host loads. `pnpm validate` fails when a shared field differs from `plugin.json`, so
+  a version bump touches both files. These rules come from Cursor's shipping loader (the plugin
+  manifest parser in its agent-exec extension), not its docs.
   **This rule is about the PLUGIN manifest and does not reach inside a skill.** A per-skill
   `agents/openai.yaml` is a different thing at a different level: the Agent Skills spec permits any
   files beyond `SKILL.md`, the file is the documented way to give one skill its own display name,

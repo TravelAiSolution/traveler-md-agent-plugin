@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires network access and a one-time OAuth authorization to https://mcp.traveler.md/mcp
 metadata:
   author: TravelAI
-  version: '1.1.0'
+  version: '1.2.0'
 ---
 
 # Traveler Onboarding
@@ -58,9 +58,9 @@ The read and write mechanics are not repeated here. Read [../travelermd/SKILL.md
 Four traps this workflow can hit:
 
 - **A section you send replaces that section wholesale.** There is no append. Read, merge, then write. This workflow writes into a profile that may already have content, so sending only the recovered sentences deletes what was there.
-- **Some writes require `sections`** even though the published schema does not mark it required. `tools.md` says which. Check it before the first profile write of a session rather than after the rejection.
+- **Use the tool schema for required arguments.** See `tools.md` for profile and trip write requirements.
 - **Emptying a section needs `allow_clear_sections: true`**, naming every section it would empty. Omit a section to leave it untouched.
-- **Check the `changes` object on every write.** An unknown top-level argument name is dropped rather than rejected, so a misspelled field returns a successful-looking response that changed nothing, and a bulk onboarding write that lands nowhere looks exactly like one that worked.
+- **Verify the returned fields after a write.** `changes` describes section-text edits only. A status-only or event-record-only update can succeed without it. Unknown argument names are rejected. See the mechanics skill for verification and recovery.
 
 Each section has its own sentence cap, and going over it is a validation error naming the section and the cap. Bulk recovery is the likeliest way to exceed one: consolidate into fewer, denser sentences rather than truncating and losing content. The caps are in the two section references.
 
