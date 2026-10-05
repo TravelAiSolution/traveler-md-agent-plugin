@@ -1,6 +1,5 @@
 {
   "name": "traveler-md",
-  "displayName": "Traveler.md",
   "version": "1.2.0",
   "description": "A traveler's own travel memory. Traveler.md keeps how they like to travel and a record of every trip, past and planned, so no assistant has to ask twice. This plugin connects an agent to it over the Traveler.md MCP server: it reads what the traveler already said before it plans, and writes back what it learns.",
   "author": {
@@ -11,5 +10,6 @@
   "repository": "https://github.com/TravelAiSolution/traveler-md-agent-plugin",
   "license": "MIT",
   "keywords": ["traveler.md", "trip.md", "travel memory", "travel profile", "trip history", "mcp"],
+  "mcpServers": "./mcp.json",
   "logo": "assets/icon.png"
 }

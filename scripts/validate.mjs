@@ -887,7 +887,7 @@ if (!existsSync(join(ROOT, MARKETPLACE))) {
   }
 }
 
-// --- 6. Cursor manifest ----------------------------------------------------
+// --- 6. Host manifests (Cursor, Grok Build) -------------------------------
 //
 // Cursor loads a root plugin.json as an Agent Plugin, but the closed 1.0.0
 // schema has nowhere to put a display name or a logo, and the Cursor
@@ -903,8 +903,9 @@ if (!existsSync(join(ROOT, MARKETPLACE))) {
 // HTTP and its `type` is never read, so the Agent Plugins mcp.json serves both.
 
 const CURSOR_MANIFEST = '.cursor-plugin/plugin.json';
-const CURSOR_NAME = /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/;
-const CURSOR_SHARED_FIELDS = [
+const GROK_MANIFEST = '.grok-plugin/plugin.json';
+const HOST_NAME = /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/;
+const HOST_SHARED_FIELDS = [
   'name',
   'version',
   'description',
@@ -914,57 +915,72 @@ const CURSOR_SHARED_FIELDS = [
   'license',
   'keywords',
 ];
+const HOST_COMPONENT_FIELDS = ['skills', 'mcpServers', 'rules', 'agents', 'commands', 'hooks'];
 
-if (!existsSync(join(ROOT, CURSOR_MANIFEST))) {
-  pass(`${CURSOR_MANIFEST} absent`, 'optional; Cursor falls back to plugin.json');
-} else {
-  let cursor;
+checkHostManifest(CURSOR_MANIFEST, 'optional; Cursor falls back to plugin.json', {});
+
+// Grok Build reads only .grok-plugin/ or .claude-plugin/ for a manifest, and
+// only .mcp.json unless `mcpServers` names a file. Naming mcp.json keeps one
+// server definition for every host instead of a second copy to drift.
+checkHostManifest(GROK_MANIFEST, 'optional; Grok Build would load the skills only', {
+  mcpServers: './mcp.json',
+});
+
+function checkHostManifest(path, absentDetail, requiredComponents) {
+  if (!existsSync(join(ROOT, path))) {
+    pass(`${path} absent`, absentDetail);
+    return;
+  }
+  let host;
   try {
-    cursor = readJson(CURSOR_MANIFEST);
-    pass(`${CURSOR_MANIFEST} parses as JSON`);
+    host = readJson(path);
+    pass(`${path} parses as JSON`);
   } catch (err) {
-    fail(`${CURSOR_MANIFEST} parses as JSON`, err.message);
+    fail(`${path} parses as JSON`, err.message);
+    return;
   }
 
-  if (cursor) {
-    if (typeof cursor.name === 'string' && CURSOR_NAME.test(cursor.name)) {
-      pass(`${CURSOR_MANIFEST} name is a name the host accepts`);
+  if (typeof host.name === 'string' && HOST_NAME.test(host.name)) {
+    pass(`${path} name is a name the host accepts`);
+  } else {
+    fail(`${path} name is a name the host accepts`, String(host.name));
+  }
+
+  for (const field of HOST_SHARED_FIELDS) {
+    const ours = JSON.stringify(host[field]);
+    const theirs = JSON.stringify(manifest?.[field]);
+    if (ours === theirs) {
+      pass(`${path} ${field} matches plugin.json`);
     } else {
-      fail(`${CURSOR_MANIFEST} name is a name the host accepts`, String(cursor.name));
+      fail(`${path} ${field} matches plugin.json`, `${ours} vs ${theirs}`);
     }
+  }
 
-    for (const field of CURSOR_SHARED_FIELDS) {
-      const ours = JSON.stringify(cursor[field]);
-      const theirs = JSON.stringify(manifest?.[field]);
-      if (ours === theirs) {
-        pass(`${CURSOR_MANIFEST} ${field} matches plugin.json`);
-      } else {
-        fail(`${CURSOR_MANIFEST} ${field} matches plugin.json`, `${ours} vs ${theirs}`);
-      }
-    }
-
-    // A component path here overrides discovery, and would point Cursor at a
-    // different MCP or skills set than every other host loads.
-    const overrides = ['skills', 'mcpServers', 'rules', 'agents', 'commands', 'hooks'].filter(
-      (k) => k in cursor,
+  // A component path here overrides discovery, and would point the host at a
+  // different MCP or skills set than every other host loads.
+  const overrides = HOST_COMPONENT_FIELDS.filter(
+    (k) => k in host && JSON.stringify(host[k]) !== JSON.stringify(requiredComponents[k]),
+  );
+  const missing = Object.keys(requiredComponents).filter((k) => !(k in host));
+  if (overrides.length === 0 && missing.length === 0) {
+    pass(`${path} component discovery matches every other host`);
+  } else {
+    fail(
+      `${path} component discovery matches every other host`,
+      [...overrides, ...missing].join(', '),
     );
-    if (overrides.length === 0) {
-      pass(`${CURSOR_MANIFEST} leaves component discovery to the defaults`);
-    } else {
-      fail(`${CURSOR_MANIFEST} leaves component discovery to the defaults`, overrides.join(', '));
-    }
+  }
 
-    const logo = cursor.logo;
-    const safe =
-      typeof logo === 'string' &&
-      logo.length > 0 &&
-      !logo.startsWith('/') &&
-      !logo.split('/').includes('..');
-    if (safe && existsSync(join(ROOT, logo))) {
-      pass(`${CURSOR_MANIFEST} logo resolves to a committed file`, logo);
-    } else {
-      fail(`${CURSOR_MANIFEST} logo resolves to a committed file`, String(logo));
-    }
+  const logo = host.logo;
+  const safe =
+    typeof logo === 'string' &&
+    logo.length > 0 &&
+    !logo.startsWith('/') &&
+    !logo.split('/').includes('..');
+  if (safe && existsSync(join(ROOT, logo))) {
+    pass(`${path} logo resolves to a committed file`, logo);
+  } else {
+    fail(`${path} logo resolves to a committed file`, String(logo));
   }
 }
 
