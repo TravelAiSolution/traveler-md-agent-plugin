@@ -887,7 +887,88 @@ if (!existsSync(join(ROOT, MARKETPLACE))) {
   }
 }
 
-// --- 6. Path containment (spec 4.1) ---------------------------------------
+// --- 6. Cursor manifest ----------------------------------------------------
+//
+// Cursor loads a root plugin.json as an Agent Plugin, but the closed 1.0.0
+// schema has nowhere to put a display name or a logo, and the Cursor
+// marketplace lists a plugin by both. Its loader looks for
+// .cursor-plugin/plugin.json first, then .claude-plugin/plugin.json, then the
+// root plugin.json, and the first one found wins. So this file is the second
+// manifest the package otherwise avoids, and every field it shares with
+// plugin.json is checked equal here, because nothing else keeps them in step.
+//
+// From the host's loader: the name has to match /^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/.
+// With no `skills` or `mcpServers` field, it discovers ./skills and reads
+// .mcp.json, then mcp.json. A server with a `url` is always run as streamable
+// HTTP and its `type` is never read, so the Agent Plugins mcp.json serves both.
+
+const CURSOR_MANIFEST = '.cursor-plugin/plugin.json';
+const CURSOR_NAME = /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/;
+const CURSOR_SHARED_FIELDS = [
+  'name',
+  'version',
+  'description',
+  'author',
+  'homepage',
+  'repository',
+  'license',
+  'keywords',
+];
+
+if (!existsSync(join(ROOT, CURSOR_MANIFEST))) {
+  pass(`${CURSOR_MANIFEST} absent`, 'optional; Cursor falls back to plugin.json');
+} else {
+  let cursor;
+  try {
+    cursor = readJson(CURSOR_MANIFEST);
+    pass(`${CURSOR_MANIFEST} parses as JSON`);
+  } catch (err) {
+    fail(`${CURSOR_MANIFEST} parses as JSON`, err.message);
+  }
+
+  if (cursor) {
+    if (typeof cursor.name === 'string' && CURSOR_NAME.test(cursor.name)) {
+      pass(`${CURSOR_MANIFEST} name is a name the host accepts`);
+    } else {
+      fail(`${CURSOR_MANIFEST} name is a name the host accepts`, String(cursor.name));
+    }
+
+    for (const field of CURSOR_SHARED_FIELDS) {
+      const ours = JSON.stringify(cursor[field]);
+      const theirs = JSON.stringify(manifest?.[field]);
+      if (ours === theirs) {
+        pass(`${CURSOR_MANIFEST} ${field} matches plugin.json`);
+      } else {
+        fail(`${CURSOR_MANIFEST} ${field} matches plugin.json`, `${ours} vs ${theirs}`);
+      }
+    }
+
+    // A component path here overrides discovery, and would point Cursor at a
+    // different MCP or skills set than every other host loads.
+    const overrides = ['skills', 'mcpServers', 'rules', 'agents', 'commands', 'hooks'].filter(
+      (k) => k in cursor,
+    );
+    if (overrides.length === 0) {
+      pass(`${CURSOR_MANIFEST} leaves component discovery to the defaults`);
+    } else {
+      fail(`${CURSOR_MANIFEST} leaves component discovery to the defaults`, overrides.join(', '));
+    }
+
+    const logo = cursor.logo;
+    const safe =
+      typeof logo === 'string' &&
+      logo.length > 0 &&
+      !logo.startsWith('/') &&
+      !logo.split('/').includes('..');
+    if (safe && existsSync(join(ROOT, logo))) {
+      pass(`${CURSOR_MANIFEST} logo resolves to a committed file`, logo);
+    } else {
+      fail(`${CURSOR_MANIFEST} logo resolves to a committed file`, String(logo));
+    }
+  }
+}
+
+// --- 7. Path containment (spec 4.1) ---------------------------------------
 
 let escapes = 0;
 for (const file of walk(ROOT)) {

@@ -15,6 +15,7 @@ skills/travelermd/           # the mechanics skill: SKILL.md + references/
 skills/<workflow>/           # six workflow skills, each SKILL.md + its own references/
 assets/                      # brand marks referenced by the install-surface metadata
 .agents/plugins/             # marketplace entry: distribution, not a plugin component
+.cursor-plugin/plugin.json   # Cursor listing metadata only: displayName + logo
 scripts/                     # validation tooling ONLY, not part of the plugin
 ```
 
@@ -141,6 +142,13 @@ someone has forked or cloned, a rewrite reaches nothing. Get it right the first 
   non-managed, so a host prompts the traveler to trust them before anything runs. Nothing portable
   goes in a vendor namespace, and no second manifest: a `.codex-plugin/plugin.json` would restate
   `name` and `version` with nothing keeping them in step, and the `extensions` entry wins anyway.
+- **`.cursor-plugin/plugin.json` is the one second manifest, and it is listing metadata only.**
+  Cursor loads the root `plugin.json` as an Agent Plugin but takes `displayName` and `logo` only
+  from this file, and its loader prefers this file when both exist. Keep it to the shared fields
+  plus those two: a component path here would point Cursor at different skills or MCP config than
+  every other host loads. `pnpm validate` fails when a shared field differs from `plugin.json`, so
+  a version bump touches both files. These rules come from Cursor's shipping loader (the plugin
+  manifest parser in its agent-exec extension), not its docs.
   **This rule is about the PLUGIN manifest and does not reach inside a skill.** A per-skill
   `agents/openai.yaml` is a different thing at a different level: the Agent Skills spec permits any
   files beyond `SKILL.md`, the file is the documented way to give one skill its own display name,

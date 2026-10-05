@@ -31,6 +31,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SKILL = 'skills/travelermd/SKILL.md';
 const MARKETPLACE = '.agents/plugins/marketplace.json';
+const CURSOR_MANIFEST = '.cursor-plugin/plugin.json';
 // One skill's harness config stands in for all six: the check loops over every
 // skill directory, so a fault injected into any one of them exercises it.
 const OPENAI_YAML = 'skills/add-trip/agents/openai.yaml';
@@ -263,6 +264,26 @@ const CASES = [
         m.plugins[0].source.path = './../elsewhere';
       }),
   },
+  {
+    what: 'a version bump that misses the Cursor manifest',
+    expect: `${CURSOR_MANIFEST} version matches plugin.json`,
+    apply: (d) => editJson(d, 'plugin.json', (m) => (m.version = '9.9.9')),
+  },
+  {
+    what: 'an uppercase name in the Cursor manifest',
+    expect: `${CURSOR_MANIFEST} name is a name the host accepts`,
+    apply: (d) => editJson(d, CURSOR_MANIFEST, (m) => (m.name = 'Traveler-MD')),
+  },
+  {
+    what: 'a Cursor manifest pointing at a different MCP file',
+    expect: `${CURSOR_MANIFEST} leaves component discovery to the defaults`,
+    apply: (d) => editJson(d, CURSOR_MANIFEST, (m) => (m.mcpServers = './.mcp.json')),
+  },
+  {
+    what: 'a Cursor logo that is not committed',
+    expect: `${CURSOR_MANIFEST} logo resolves to a committed file`,
+    apply: (d) => editJson(d, CURSOR_MANIFEST, (m) => (m.logo = 'assets/missing.svg')),
+  },
 
   // --- Per-skill agents/openai.yaml ---
   //
@@ -407,6 +428,7 @@ function runCase(c) {
     'scripts',
     'package.json',
     '.agents',
+    '.cursor-plugin',
     'assets',
   ]) {
     cpSync(join(ROOT, item), join(dir, item), { recursive: true });
