@@ -291,14 +291,20 @@ const CASES = [
     apply: (d) => editJson(d, 'plugin.json', (m) => (m.description = 'changed')),
   },
   {
-    what: 'a Grok manifest that drops the MCP server',
+    what: 'a Grok manifest that declares an MCP path Grok Build ignores',
     expect: `${GROK_MANIFEST} component discovery matches every other host`,
-    apply: (d) => editJson(d, GROK_MANIFEST, (m) => delete m.mcpServers),
+    apply: (d) => editJson(d, GROK_MANIFEST, (m) => (m.mcpServers = './mcp.json')),
   },
   {
-    what: 'a Grok manifest pointing at a different MCP file',
-    expect: `${GROK_MANIFEST} component discovery matches every other host`,
-    apply: (d) => editJson(d, GROK_MANIFEST, (m) => (m.mcpServers = './.mcp.json')),
+    what: 'an mcp.json edit that misses .mcp.json',
+    expect: '.mcp.json is a byte copy of mcp.json',
+    apply: (d) =>
+      editJson(d, 'mcp.json', (m) => (m.mcpServers.travelermd.url = 'https://example.com/mcp')),
+  },
+  {
+    what: 'a missing .mcp.json',
+    expect: '.mcp.json exists for Grok Build',
+    apply: (d) => rmSync(join(d, '.mcp.json')),
   },
 
   // --- Per-skill agents/openai.yaml ---
@@ -440,6 +446,7 @@ function runCase(c) {
   for (const item of [
     'plugin.json',
     'mcp.json',
+    '.mcp.json',
     'skills',
     'scripts',
     'package.json',

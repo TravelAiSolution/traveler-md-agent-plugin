@@ -10,6 +10,5 @@
   "repository": "https://github.com/TravelAiSolution/traveler-md-agent-plugin",
   "license": "MIT",
   "keywords": ["traveler.md", "trip.md", "travel memory", "travel profile", "trip history", "mcp"],
-  "mcpServers": "./mcp.json",
   "logo": "assets/icon.png"
 }
