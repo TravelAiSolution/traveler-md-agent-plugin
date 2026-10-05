@@ -44,6 +44,8 @@ The host reads the manifest at the repository root and finds the rest by convent
 
 Cursor reads this package as well. It finds `skills/` and `mcp.json` the same way, and it takes the display name and logo for its listing from `.cursor-plugin/plugin.json`.
 
+Grok Build reads its manifest from `.grok-plugin/plugin.json`. That manifest points at `mcp.json`, because Grok Build would otherwise look only for `.mcp.json` and load the skills without the server.
+
 ### The MCP server on its own
 
 If your client does not read Agent Plugins yet, connect the server directly. One click:
@@ -120,6 +122,8 @@ The file to put it in depends on the client: `CLAUDE.md` for Claude Code, `AGENT
 │   └── marketplace.json              # Makes this repo installable from its Git URL
 ├── .cursor-plugin/
 │   └── plugin.json                   # Cursor listing: display name and logo
+├── .grok-plugin/
+│   └── plugin.json                   # Grok Build manifest: points at mcp.json
 └── scripts/                          # Validation tooling, not part of the plugin
 ```
 

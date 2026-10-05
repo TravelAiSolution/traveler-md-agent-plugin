@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "traveler-md",
-  "version": "1.2.0",
-  "description": "Read and write a traveler's portable travel profile (traveler.md) and trip plans (trip.md) over the traveler.md MCP server, with skills that teach the read-before-write concurrency loop and the section model.",
+  "version": "1.3.0",
+  "description": "A traveler's own travel memory. Traveler.md keeps how they like to travel and a record of every trip, past and planned, so no assistant has to ask twice. This plugin connects an agent to it over the Traveler.md MCP server: it reads what the traveler already said before it plans, and writes back what it learns.",
   "author": {
     "name": "TravelAI",
     "url": "https://traveler.md"
@@ -10,7 +10,7 @@
   "homepage": "https://docs.traveler.md/mcp",
   "repository": "https://github.com/TravelAiSolution/traveler-md-agent-plugin",
   "license": "MIT",
-  "keywords": ["travel", "traveler-md", "trip-planning", "mcp", "personalization"],
+  "keywords": ["traveler.md", "trip.md", "travel memory", "travel profile", "trip history", "mcp"],
   "extensions": {
     "com.openai": {
       "interface": {
