@@ -919,12 +919,20 @@ const HOST_COMPONENT_FIELDS = ['skills', 'mcpServers', 'rules', 'agents', 'comma
 
 checkHostManifest(CURSOR_MANIFEST, 'optional; Cursor falls back to plugin.json', {});
 
-// Grok Build reads only .grok-plugin/ or .claude-plugin/ for a manifest, and
-// only .mcp.json unless `mcpServers` names a file. Naming mcp.json keeps one
-// server definition for every host instead of a second copy to drift.
-checkHostManifest(GROK_MANIFEST, 'optional; Grok Build would load the skills only', {
-  mcpServers: './mcp.json',
-});
+checkHostManifest(GROK_MANIFEST, 'optional; Grok Build falls back to .claude-plugin/', {});
+
+// Grok Build ignores a manifest's `mcpServers` and loads a server only from
+// .mcp.json, so that file has to exist and must stay a byte copy of mcp.json.
+const DOT_MCP = '.mcp.json';
+if (!existsSync(join(ROOT, DOT_MCP))) {
+  fail(`${DOT_MCP} exists for Grok Build`, 'without it Grok Build loads the skills only');
+} else if (
+  readFileSync(join(ROOT, DOT_MCP), 'utf8') === readFileSync(join(ROOT, 'mcp.json'), 'utf8')
+) {
+  pass(`${DOT_MCP} is a byte copy of mcp.json`);
+} else {
+  fail(`${DOT_MCP} is a byte copy of mcp.json`, 'edit both files together');
+}
 
 function checkHostManifest(path, absentDetail, requiredComponents) {
   if (!existsSync(join(ROOT, path))) {
