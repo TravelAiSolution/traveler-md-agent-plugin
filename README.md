@@ -44,7 +44,7 @@ The host reads the manifest at the repository root and finds the rest by convent
 
 Cursor reads this package as well. It finds `skills/` and `mcp.json` the same way, and it takes the display name and logo for its listing from `.cursor-plugin/plugin.json`.
 
-Grok Build reads its manifest from `.grok-plugin/plugin.json`. That manifest points at `mcp.json`, because Grok Build would otherwise look only for `.mcp.json` and load the skills without the server.
+Grok Build reads its manifest from `.grok-plugin/plugin.json` and its MCP server only from `.mcp.json`. It ignores an `mcpServers` field in the manifest. `.mcp.json` is a byte copy of `mcp.json`, and `pnpm validate` fails if the two differ.
 
 ### The MCP server on its own
 
@@ -100,6 +100,7 @@ The file to put it in depends on the client: `CLAUDE.md` for Claude Code, `AGENT
 .
 ├── plugin.json                       # Portable manifest
 ├── mcp.json                          # One streamable-http server: mcp.traveler.md
+├── .mcp.json                         # Byte copy of mcp.json, for Grok Build
 ├── skills/
 │   ├── travelermd/                   # The mechanics. Every other skill defers to this one
 │   │   ├── SKILL.md                  # Read before you advise, the read-before-write loop, the five rules
@@ -123,7 +124,7 @@ The file to put it in depends on the client: `CLAUDE.md` for Claude Code, `AGENT
 ├── .cursor-plugin/
 │   └── plugin.json                   # Cursor listing: display name and logo
 ├── .grok-plugin/
-│   └── plugin.json                   # Grok Build manifest: points at mcp.json
+│   └── plugin.json                   # Grok Build manifest
 └── scripts/                          # Validation tooling, not part of the plugin
 ```
 
