@@ -32,6 +32,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SKILL = 'skills/travelermd/SKILL.md';
 const MARKETPLACE = '.agents/plugins/marketplace.json';
 const CURSOR_MANIFEST = '.cursor-plugin/plugin.json';
+const GROK_MANIFEST = '.grok-plugin/plugin.json';
 // One skill's harness config stands in for all six: the check loops over every
 // skill directory, so a fault injected into any one of them exercises it.
 const OPENAI_YAML = 'skills/add-trip/agents/openai.yaml';
@@ -276,13 +277,28 @@ const CASES = [
   },
   {
     what: 'a Cursor manifest pointing at a different MCP file',
-    expect: `${CURSOR_MANIFEST} leaves component discovery to the defaults`,
+    expect: `${CURSOR_MANIFEST} component discovery matches every other host`,
     apply: (d) => editJson(d, CURSOR_MANIFEST, (m) => (m.mcpServers = './.mcp.json')),
   },
   {
     what: 'a Cursor logo that is not committed',
     expect: `${CURSOR_MANIFEST} logo resolves to a committed file`,
     apply: (d) => editJson(d, CURSOR_MANIFEST, (m) => (m.logo = 'assets/missing.svg')),
+  },
+  {
+    what: 'a description edit that misses the Grok manifest',
+    expect: `${GROK_MANIFEST} description matches plugin.json`,
+    apply: (d) => editJson(d, 'plugin.json', (m) => (m.description = 'changed')),
+  },
+  {
+    what: 'a Grok manifest that drops the MCP server',
+    expect: `${GROK_MANIFEST} component discovery matches every other host`,
+    apply: (d) => editJson(d, GROK_MANIFEST, (m) => delete m.mcpServers),
+  },
+  {
+    what: 'a Grok manifest pointing at a different MCP file',
+    expect: `${GROK_MANIFEST} component discovery matches every other host`,
+    apply: (d) => editJson(d, GROK_MANIFEST, (m) => (m.mcpServers = './.mcp.json')),
   },
 
   // --- Per-skill agents/openai.yaml ---
@@ -429,6 +445,7 @@ function runCase(c) {
     'package.json',
     '.agents',
     '.cursor-plugin',
+    '.grok-plugin',
     'assets',
   ]) {
     cpSync(join(ROOT, item), join(dir, item), { recursive: true });
