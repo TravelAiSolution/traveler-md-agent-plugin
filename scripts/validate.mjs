@@ -927,4 +927,6 @@ console.log(
   `\n${results.length - failures.length}/${results.length} checks passed` +
     (failures.length ? ` — ${failures.length} FAILED` : ''),
 );
-process.exit(failures.length ? 1 : 0);
+// exitCode, not exit(): exit() can drop buffered stdout when piped, which loses
+// the FAIL lines the self-test reads.
+process.exitCode = failures.length ? 1 : 0;
