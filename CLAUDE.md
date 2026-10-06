@@ -41,19 +41,23 @@ pnpm self-test      # injects faults one at a time, into BOTH checkers, and asse
 pnpm check-drift    # the skill's tables vs scripts/fixtures/live-surface.json
 pnpm test           # all three, in that order
 
-pnpm lint           # oxlint — fast local pass
-pnpm lint:ci        # eslint --max-warnings 0 — the AUTHORITY
+pnpm lint           # oxlint: fast local pass, warnings allowed
+pnpm lint:ci        # oxlint --deny-warnings: the CI gate
 pnpm lint:fix       # oxlint --fix
-pnpm format         # prettier --write .
-pnpm format:check   # prettier --check .
+pnpm format         # oxfmt .
+pnpm format:check   # oxfmt --check .
 ```
 
 There is deliberately **no `typecheck` script**: there is no TypeScript here. If a script grows
 enough to want types, add TS and port the type-aware config from the sibling repos rather than
-bolting `checkJs` onto the flat config.
+bolting `checkJs` onto this setup.
 
-`.oxlintrc.json` must stay a strict **subset** of `eslint.config.mjs`, so `pnpm lint` never fails on
-code `pnpm lint:ci` accepts.
+`.oxlintrc.json` is the single lint config for both `pnpm lint` and `pnpm lint:ci`. It enables
+every rule in ESLint's `js/recommended` set that oxlint implements, plus `eqeqeq`, `prefer-const`,
+`no-var`, `no-unused-expressions` and `no-unused-vars` (a leading `_` marks a deliberately unused
+binding). `.oxfmtrc.json` holds the formatter settings; its `ignorePatterns` keeps `scripts/schemas`
+out because those files are vendored verbatim and must stay byte-for-byte identical to the
+published schemas.
 
 ## Definition of Done
 
@@ -69,7 +73,7 @@ code `pnpm lint:ci` accepts.
    pnpm test
    ```
 3. **A failing gate means fixing the cause, not bypassing it.** Never `--no-verify`. Never add an
-   eslint-disable to quiet a lint rule; never delete or weaken a check in `scripts/` to make a run
+   oxlint-disable to quiet a lint rule; never delete or weaken a check in `scripts/` to make a run
    pass. If `self-test` says a fault is no longer caught, the validator regressed.
 
 ## Public repo
