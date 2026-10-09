@@ -11,11 +11,13 @@ framework. The deliverables are:
 ```
 plugin.json                  # portable manifest (closed schema, 10 permitted fields)
 mcp.json                     # one streamable-http MCP server (closed schema)
+.mcp.json                    # byte copy of mcp.json, for Grok Build (pnpm validate checks it)
 skills/travelermd/           # the mechanics skill: SKILL.md + references/
 skills/<workflow>/           # six workflow skills, each SKILL.md + its own references/
 assets/                      # brand marks referenced by the install-surface metadata
 .agents/plugins/             # marketplace entry: distribution, not a plugin component
 .cursor-plugin/plugin.json   # Cursor listing metadata only: displayName + logo
+.grok-plugin/plugin.json     # Grok Build manifest: shared fields + logo, no components
 scripts/                     # validation tooling ONLY, not part of the plugin
 ```
 
@@ -122,7 +124,7 @@ someone has forked or cloned, a rewrite reaches nothing. Get it right the first 
   the checker.
 - **The MCP surface moving is a change to this repo.** When the backend changes a section
   descriptor, a cap, the status enum, a scope or an error message, this package is updated in the
-  same pull request. Refresh `scripts/fixtures/live-surface.json` (command in the README) and then
+  same pull request. Refresh `scripts/fixtures/live-surface.json` (command in the server repo, see "Project shape") and then
   fix the prose the drift check flags.
 - **Never invent a claim to fill a gap.** If you cannot verify something, leave it out and say so.
   An incomplete skill is recoverable; a confidently wrong one is not.
@@ -147,7 +149,8 @@ someone has forked or cloned, a rewrite reaches nothing. Get it right the first 
   non-managed, so a host prompts the traveler to trust them before anything runs. Nothing portable
   goes in a vendor namespace, and no second manifest: a `.codex-plugin/plugin.json` would restate
   `name` and `version` with nothing keeping them in step, and the `extensions` entry wins anyway.
-- **`.cursor-plugin/plugin.json` is the one second manifest, and it is listing metadata only.**
+- **`.cursor-plugin/plugin.json` is listing metadata only.** (`.grok-plugin/plugin.json` follows the
+  same rules and `pnpm validate` runs the same checks on it.)
   Cursor loads the root `plugin.json` as an Agent Plugin but takes `displayName` and `logo` only
   from this file, and its loader prefers this file when both exist. Keep it to the shared fields
   plus those two: a component path here would point Cursor at different skills or MCP config than
@@ -176,7 +179,7 @@ someone has forked or cloned, a rewrite reaches nothing. Get it right the first 
   hosts reject they reject silently: a dropped field warns in a log we never see.
 - **Bugs found but not fixed go in `tasks/bugs.md`** with location, reproduction, what is wrong,
   candidate fixes and any workaround in place. A fixed entry is deleted, never struck through.
-- **Everything you write here is public. See "Public repo" below before every commit and every pull
+- **Everything you write here is public. See "Public repo" above before every commit and every pull
   request.**
 - **Never `git push` without an explicit ask in the current turn.**
 
