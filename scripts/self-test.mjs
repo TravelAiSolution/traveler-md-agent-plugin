@@ -312,7 +312,7 @@ const CASES = [
   // This file is optional and no other client reads it, so nothing about a
   // broken one is visible at install time. That is exactly why it is checked.
   //
-  // Anchor these injections on VALUE TEXT, never on a quote character. Prettier
+  // Anchor these injections on VALUE TEXT, never on a quote character. oxfmt
   // owns the quote style in YAML and rewrites the vendor's double quotes to
   // single, so an anchor that includes one breaks on the next `pnpm format`
   // and the fault reads as MISSED rather than as the formatting change it is.

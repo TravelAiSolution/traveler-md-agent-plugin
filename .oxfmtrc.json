@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "semi": true,
+  "singleQuote": true,
+  "trailingComma": "all",
+  "printWidth": 100,
+  "tabWidth": 2,
+  "useTabs": false,
+  "arrowParens": "always",
+  "endOfLine": "lf",
+  "bracketSpacing": true,
+  "bracketSameLine": false,
+  "sortPackageJson": false,
+  "ignorePatterns": [
+    "node_modules",
+    "coverage",
+    "pnpm-lock.yaml",
+    ".lycheecache",
+    "scripts/schemas"
+  ]
+}

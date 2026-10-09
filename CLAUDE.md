@@ -11,11 +11,13 @@ framework. The deliverables are:
 ```
 plugin.json                  # portable manifest (closed schema, 10 permitted fields)
 mcp.json                     # one streamable-http MCP server (closed schema)
+.mcp.json                    # byte copy of mcp.json, for Grok Build (pnpm validate checks it)
 skills/travelermd/           # the mechanics skill: SKILL.md + references/
 skills/<workflow>/           # six workflow skills, each SKILL.md + its own references/
 assets/                      # brand marks referenced by the install-surface metadata
 .agents/plugins/             # marketplace entry: distribution, not a plugin component
 .cursor-plugin/plugin.json   # Cursor listing metadata only: displayName + logo
+.grok-plugin/plugin.json     # Grok Build manifest: shared fields + logo, no components
 scripts/                     # validation tooling ONLY, not part of the plugin
 ```
 
@@ -41,19 +43,23 @@ pnpm self-test      # injects faults one at a time, into BOTH checkers, and asse
 pnpm check-drift    # the skill's tables vs scripts/fixtures/live-surface.json
 pnpm test           # all three, in that order
 
-pnpm lint           # oxlint — fast local pass
-pnpm lint:ci        # eslint --max-warnings 0 — the AUTHORITY
+pnpm lint           # oxlint: fast local pass, warnings allowed
+pnpm lint:ci        # oxlint --deny-warnings: the CI gate
 pnpm lint:fix       # oxlint --fix
-pnpm format         # prettier --write .
-pnpm format:check   # prettier --check .
+pnpm format         # oxfmt .
+pnpm format:check   # oxfmt --check .
 ```
 
 There is deliberately **no `typecheck` script**: there is no TypeScript here. If a script grows
 enough to want types, add TS and port the type-aware config from the sibling repos rather than
-bolting `checkJs` onto the flat config.
+bolting `checkJs` onto this setup.
 
-`.oxlintrc.json` must stay a strict **subset** of `eslint.config.mjs`, so `pnpm lint` never fails on
-code `pnpm lint:ci` accepts.
+`.oxlintrc.json` is the single lint config for both `pnpm lint` and `pnpm lint:ci`. It enables
+every rule in ESLint's `js/recommended` set that oxlint implements, plus `eqeqeq`, `prefer-const`,
+`no-var`, `no-unused-expressions` and `no-unused-vars` (a leading `_` marks a deliberately unused
+binding). `.oxfmtrc.json` holds the formatter settings; its `ignorePatterns` keeps `scripts/schemas`
+out because those files are vendored verbatim and must stay byte-for-byte identical to the
+published schemas.
 
 ## Definition of Done
 
@@ -69,7 +75,7 @@ code `pnpm lint:ci` accepts.
    pnpm test
    ```
 3. **A failing gate means fixing the cause, not bypassing it.** Never `--no-verify`. Never add an
-   eslint-disable to quiet a lint rule; never delete or weaken a check in `scripts/` to make a run
+   oxlint-disable to quiet a lint rule; never delete or weaken a check in `scripts/` to make a run
    pass. If `self-test` says a fault is no longer caught, the validator regressed.
 
 ## Public repo
@@ -118,7 +124,7 @@ someone has forked or cloned, a rewrite reaches nothing. Get it right the first 
   the checker.
 - **The MCP surface moving is a change to this repo.** When the backend changes a section
   descriptor, a cap, the status enum, a scope or an error message, this package is updated in the
-  same pull request. Refresh `scripts/fixtures/live-surface.json` (command in the README) and then
+  same pull request. Refresh `scripts/fixtures/live-surface.json` (command in the server repo, see "Project shape") and then
   fix the prose the drift check flags.
 - **Never invent a claim to fill a gap.** If you cannot verify something, leave it out and say so.
   An incomplete skill is recoverable; a confidently wrong one is not.
@@ -143,7 +149,8 @@ someone has forked or cloned, a rewrite reaches nothing. Get it right the first 
   non-managed, so a host prompts the traveler to trust them before anything runs. Nothing portable
   goes in a vendor namespace, and no second manifest: a `.codex-plugin/plugin.json` would restate
   `name` and `version` with nothing keeping them in step, and the `extensions` entry wins anyway.
-- **`.cursor-plugin/plugin.json` is the one second manifest, and it is listing metadata only.**
+- **`.cursor-plugin/plugin.json` is listing metadata only.** (`.grok-plugin/plugin.json` follows the
+  same rules and `pnpm validate` runs the same checks on it.)
   Cursor loads the root `plugin.json` as an Agent Plugin but takes `displayName` and `logo` only
   from this file, and its loader prefers this file when both exist. Keep it to the shared fields
   plus those two: a component path here would point Cursor at different skills or MCP config than
@@ -172,7 +179,7 @@ someone has forked or cloned, a rewrite reaches nothing. Get it right the first 
   hosts reject they reject silently: a dropped field warns in a log we never see.
 - **Bugs found but not fixed go in `tasks/bugs.md`** with location, reproduction, what is wrong,
   candidate fixes and any workaround in place. A fixed entry is deleted, never struck through.
-- **Everything you write here is public. See "Public repo" below before every commit and every pull
+- **Everything you write here is public. See "Public repo" above before every commit and every pull
   request.**
 - **Never `git push` without an explicit ask in the current turn.**
 

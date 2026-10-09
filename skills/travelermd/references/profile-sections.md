@@ -24,7 +24,7 @@ Section names are exact. Unknown names are rejected. Every section is optional; 
 | `past_trips`              | 100           | Trips **already completed**, as context for recommendations. Past tense only.                                       |
 | `dream_trips`             | 100           | Places and experiences they hope to do someday.                                                                     |
 | `loyalty_programs`        | 100           | Airline, hotel, car, OTA and membership programs. Private. Format below.                                            |
-| `identity_documents`      | 100           | Passport country and trusted traveler program names, visa context. Private. No government identifiers.              |
+| `home_and_entry`          | 100           | Home city or region, citizenship countries for visa and entry advice, trusted traveler program names. Private.      |
 | `additional_information`  | 100           | Anything that fits no other section. Private, because uncategorized text tends to carry incidental personal detail. |
 
 ## Sections that need care
@@ -37,7 +37,7 @@ Section names are exact. Unknown names are rejected. Every section is optional; 
 
 **Dietary and medical detail belongs in no section.** Allergies, intolerances, dietary restrictions (vegetarian, vegan, halal, kosher, gluten-free and similar) and health conditions are not recorded. Keep them out of `food_dining` and out of every other section, including when the traveler mentions one in passing. Cuisines, dining style and favourite restaurants are fine to record. Note that `food_dining` is a public-scope section, so anything written there is readable by every client the traveler connects.
 
-**`identity_documents` is owner-only and sensitive.** Read it only when the task needs it. Never write passport or known traveler numbers. If legacy content contains one, do not echo it into conversation, a summary, or another section.
+**`home_and_entry` is private.** Read it only when the task needs it, such as a visa or entry suggestion or a trip that starts from home. Never record government identifiers in it. Name a trusted traveler program, such as Global Entry or NEXUS, and nothing more.
 
 ## Choosing between profile and trip
 

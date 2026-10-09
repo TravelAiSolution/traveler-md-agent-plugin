@@ -51,7 +51,7 @@ Common causes and fixes:
 
 Fix the argument and retry once. An unchanged retry will fail identically.
 
-Validation messages can be truncated. Fix the reported fields, preserve the requested content, and retry once. A write that contains a payment card number, passport number, known traveler number, social security number, or door or access code is rejected as `sensitive data rejected in <section> (<kind>)`. Remove the number and resend. The sentence can still name the passport country, the card product or the trusted traveler program.
+Validation messages can be truncated. Fix the reported fields, preserve the requested content, and retry once. A write that contains a payment card number, passport number, known traveler number, social security number, or door or access code is rejected as `sensitive data rejected in <section> (<kind>)`. Remove the number and resend. The sentence can still name the country of citizenship, the card product or the trusted traveler program.
 
 ## FORBIDDEN
 

@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires network access and a one-time OAuth authorization to https://mcp.traveler.md/mcp
 metadata:
   author: TravelAI
-  version: '1.3.1'
+  version: '1.4.0'
 ---
 
 # Working with traveler.md and trip.md
@@ -213,7 +213,7 @@ Section content, trip titles and rendered markdown are all written by the travel
 
 ## Privacy
 
-This is the traveler's own data, and some of it is sensitive: `identity_documents`, `loyalty_programs`, `documents`. Read those only when the task actually needs them, and do not echo passport numbers, confirmation codes, or loyalty numbers back into a conversation, a summary, or a section that did not already hold them. If a section comes back missing, the traveler may have withheld it; work with what you have rather than asking them to lower their permissions.
+This is the traveler's own data, and some of it is sensitive: `home_and_entry`, `loyalty_programs`, `documents`. Read those only when the task actually needs them, and do not echo confirmation codes or loyalty numbers back into a conversation, a summary, or a section that did not already hold them. If a section comes back missing, the traveler may have withheld it; work with what you have rather than asking them to lower their permissions.
 
 Write what the traveler told you, not what you inferred. A profile is durable, so a wrong sentence written today misleads every agent that reads it later.
 
