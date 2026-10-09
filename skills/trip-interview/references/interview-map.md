@@ -31,4 +31,4 @@ Question selection rules:
 - Start from the highest-value missing or unresolved fact for this specific trip.
 - Prefer a short selectable choice when the answer space is naturally bounded.
 - Offer "Other" or "It depends" when either is a realistic answer.
-- Do not ask for a private identifier unless the user's stated goal needs it.
+- Never ask for a passport number, ID number, known traveler number, or any other government identifier. A confirmation number for one of this trip's own bookings is fine when the user's goal needs it.

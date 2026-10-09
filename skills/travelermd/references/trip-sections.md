@@ -13,7 +13,7 @@ Section names are exact. Unknown names are rejected. Every section is optional; 
 | `purpose`                | 10            | Why the trip is happening. Emotional or practical context.                                                          |
 | `budget`                 | 100           | Trip budget and tradeoffs. May override profile defaults.                                                           |
 | `accommodation`          | 100           | Where to stay on this trip specifically.                                                                            |
-| `transportation`         | 100           | Ground transport, rental car, airport transfers, walkability, transit, mobility.                                    |
+| `transportation`         | 100           | Ground transport, rental car, airport transfers, walkability, transit.                                              |
 | `flights`                | 100           | Origin, cabin tradeoffs, layover tolerance, airline preferences. Not confirmation numbers.                          |
 | `activities`             | 100           | What they want to do, are considering, or want to avoid.                                                            |
 | `restaurants_food`       | 100           | Restaurants to book, cuisines to prioritize, food tours, markets, dining style.                                     |

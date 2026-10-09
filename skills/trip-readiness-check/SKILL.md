@@ -48,7 +48,7 @@ Most of this workflow reads. The traps apply to the writes in step 8:
 
 Each section has its own sentence cap, and going over it is a validation error naming the section and the cap. Consolidate into fewer, denser sentences rather than truncating. The caps are in the two section references.
 
-A readiness check reads the sections that hold the most sensitive content. Read `documents`, `identity_documents` and `loyalty_programs` only when the check actually turns on them, and do not echo a passport number, confirmation code or loyalty number back into the conversation or into a summary.
+A readiness check reads the sections that hold the most sensitive content. Read `documents`, `home_and_entry` and `loyalty_programs` only when the check actually turns on them, and do not echo a confirmation code or loyalty number back into the conversation or into a summary.
 
 If a profile section comes back missing, the traveler may have withheld it. Work with what you have and report the area as unverifiable rather than asking them to widen your access.
 

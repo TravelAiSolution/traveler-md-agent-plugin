@@ -36,7 +36,7 @@
     "past_trips": 100,
     "dream_trips": 100,
     "loyalty_programs": 100,
-    "identity_documents": 100,
+    "home_and_entry": 100,
     "additional_information": 100
   },
   "profileScopes": {
@@ -58,7 +58,7 @@
     "past_trips": "public",
     "dream_trips": "public",
     "loyalty_programs": "private",
-    "identity_documents": "private",
+    "home_and_entry": "private",
     "additional_information": "private"
   },
   "tripSections": {
