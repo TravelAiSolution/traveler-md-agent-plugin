@@ -170,8 +170,10 @@ Cursor is the exception. It loads the root `plugin.json` as an Agent Plugin, but
 
 ## Working on this repo
 
-This package is content. There is no build step. Node 24 and pnpm are all you need, and `.nvmrc`
-pins the version.
+This package is content. There is no build step. You need Node 24 and pnpm 11.9.0. `.nvmrc` pins
+Node 24, and `engines` in `package.json` requires `>=24 <25`. `engine-strict` in `.npmrc` makes
+`pnpm install` fail on any other Node version. Run `corepack enable` once to get the pnpm version
+that `packageManager` pins.
 
 ```bash
 pnpm install
@@ -220,7 +222,8 @@ Issues and pull requests are welcome.
 Branch prefixes are `feat/`, `fix/`, `chore/`, `ci/`, `docs/`, `refactor/`, `test/`, and commit
 subjects are conventional commits, lowercase.
 
-Before opening a PR, run the three gates CI runs: `pnpm format:check`, `pnpm lint:ci`, `pnpm test`.
+Before opening a PR, run the gates CI runs: `pnpm format:check`, `pnpm lint:ci`, `pnpm test` and
+`pnpm audit --audit-level=high`.
 If your change touches anything the skill asserts about the MCP server, say in the PR what you
 verified it against. A claim you cannot verify is better left out than guessed at, because an agent
 will act on it against a real traveler's data.
