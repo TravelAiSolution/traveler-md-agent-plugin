@@ -12,3 +12,6 @@ graphify-out
 
 # git worktrees
 .claude/worktrees/
+
+# local agent notes (bugs.md and similar); never publish from this public repo
+tasks/
