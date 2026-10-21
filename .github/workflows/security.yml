@@ -2,6 +2,8 @@ name: Security
 
 on:
   pull_request:
+    # why: draft PRs skip every job (see each job's `if`); ready_for_review starts the run.
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main, develop]
   push:
     branches: [develop]
@@ -16,6 +18,7 @@ permissions:
 jobs:
   socket-firewall:
     name: socket firewall (install-time malware block)
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
