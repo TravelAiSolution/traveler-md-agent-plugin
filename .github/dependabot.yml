@@ -1,0 +1,11 @@
+# Dependabot keeps the SHA-pinned GitHub Actions current. npm is deliberately
+# absent: pnpm's own supply-chain cooldown (minimumReleaseAge in
+# pnpm-workspace.yaml) governs package bumps.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 3
