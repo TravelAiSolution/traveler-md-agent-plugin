@@ -39,3 +39,24 @@ jobs:
           path: ~/.socket/
           if-no-files-found: warn
           retention-days: 7
+
+  # CycloneDX SBOM of the dependency graph at this commit, kept 90 days as a
+  # workflow artifact so an advisory can be matched to what shipped.
+  sbom:
+    name: sbom (cyclonedx)
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: sbom-agent-plugin-${{ github.sha }}.cdx.json
+          artifact-name: sbom-agent-plugin-${{ github.sha }}.cdx.json
+          upload-artifact: true
+          upload-artifact-retention: 90
