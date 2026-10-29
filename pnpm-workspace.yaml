@@ -4,22 +4,16 @@
 # preinstall hooks that were live for ~40 minutes). Covers transitive deps too.
 # This MUST live here, not in .npmrc — pnpm 11 silently ignores the kebab-case
 # `minimum-release-age` there.
-# minimumReleaseAgeStrict is pinned to false on purpose: setting
-# minimumReleaseAge while leaving strict unset makes pnpm default it to true,
-# which hard-fails the install on any non-TTY (i.e. every CI job) instead of
-# recording the exception and proceeding.
+# minimumReleaseAgeStrict only changes what `pnpm add` does with a version
+# younger than the cooldown: strict makes it an error, non-strict
+# silently appends an exclude entry to this file and installs it. CI is not
+# affected either way: every `pnpm install --frozen-lockfile` re-verifies each
+# lockfile entry against the cooldown. Strict keeps a young version from
+# entering the lockfile without anyone noticing.
 minimumReleaseAge: 4320
-minimumReleaseAgeStrict: false
+minimumReleaseAgeStrict: true
 
 # simple-git-hooks needs its postinstall to write .git/hooks/*; without this it
 # is silently skipped and the repo has no pre-commit gate at all.
-#
-# BOTH keys are deliberate and neither is dead: `allowBuilds` is the pnpm 11
-# spelling and the one that shows up in node_modules/.modules.yaml,
-# `onlyBuiltDependencies` is the pnpm 10 spelling that the sibling repos also
-# still carry. Deleting the wrong one silently removes the git hooks, so they
-# stay together until the whole fleet drops the older key.
 allowBuilds:
   simple-git-hooks: true
-onlyBuiltDependencies:
-  - simple-git-hooks

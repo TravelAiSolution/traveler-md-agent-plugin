@@ -73,6 +73,7 @@ published schemas.
    pnpm format:check
    pnpm lint:ci
    pnpm test
+   pnpm audit --audit-level=high
    ```
 3. **A failing gate means fixing the cause, not bypassing it.** Never `--no-verify`. Never add an
    oxlint-disable to quiet a lint rule; never delete or weaken a check in `scripts/` to make a run
