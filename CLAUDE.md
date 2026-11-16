@@ -144,10 +144,14 @@ someone has forked or cloned, a rewrite reaches nothing. Get it right the first 
   dark install surface, and an OpenAI host gives `composerIcon` no dark counterpart the way it does
   `logo`. Cursor uses the same icon as its listing logo, with the same problem on a dark theme. A
   light-ground icon has to arrive as a brand asset; it is not something to invent here.
-- **`extensions["com.openai"]` carries presentation only.** An OpenAI host reads `interface`, `apps`
-  and `hooks` from that namespace and ignores everything else. Keep it to `interface`: `apps` and
-  `hooks` would make the package's behaviour depend on which client installed it, and hooks are
-  non-managed, so a host prompts the traveler to trust them before anything runs. Nothing portable
+- **`extensions["com.openai"]` carries presentation metadata and one pointer.** An OpenAI host
+  reads `interface`, `onboardingSkill`, `apps` and `hooks` from that namespace and ignores
+  everything else. Keep it to `interface` and `onboardingSkill`. `onboardingSkill` names
+  `./skills/traveler-onboarding/SKILL.md`, a skill that every host already loads from `skills/`, so
+  no client sees a different set of skills or a different MCP configuration. `pnpm validate` checks
+  that it names the `SKILL.md` of a discovered skill. `apps` and `hooks` stay out: they would make
+  the package's behaviour depend on which client installed it, and hooks are non-managed, so a
+  host prompts the traveler to trust them before anything runs. Nothing portable
   goes in a vendor namespace, and no second manifest: a `.codex-plugin/plugin.json` would restate
   `name` and `version` with nothing keeping them in step, and the `extensions` entry wins anyway.
 - **`.cursor-plugin/plugin.json` is listing metadata only.** (`.grok-plugin/plugin.json` follows the
