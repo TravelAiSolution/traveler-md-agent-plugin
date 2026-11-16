@@ -215,6 +215,9 @@ if (!existsSync(mcpPath)) {
 // --- 3. Skill discovery and the Agent Skills format ------------------------
 
 const skillsDir = join(ROOT, 'skills');
+// Names of the skill directories whose SKILL.md every host discovers, so a
+// manifest field that points at a skill can be held to that same set.
+const discoveredSkills = new Set();
 if (!existsSync(skillsDir)) {
   pass('skills/ absent', 'allowed by spec 6.2');
 } else if (!lstatSync(skillsDir).isDirectory()) {
@@ -239,6 +242,7 @@ if (!existsSync(skillsDir)) {
       continue;
     }
     pass(`skills/${child.name}/SKILL.md discovered`);
+    discoveredSkills.add(child.name);
 
     const raw = readFileSync(skillMd, 'utf8');
     const m = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
@@ -380,18 +384,20 @@ if (!existsSync(skillsDir)) {
 //
 // What it does NOT infer is the install-surface metadata: without an override it
 // synthesises displayName from `name`, category "Other" and shortDescription
-// from the full `description`. That override is the one thing worth carrying,
-// and it belongs under extensions["com.openai"], which the closed 1.0.0 schema
-// permits and every other conforming client ignores. Codex reads exactly three
-// fields from it and gives it precedence over a .codex-plugin/plugin.json file,
-// which is why this package keeps a single manifest.
+// from the full `description`. That override belongs under
+// extensions["com.openai"], which the closed 1.0.0 schema permits and every
+// other conforming client ignores. The same namespace can also name an
+// onboarding skill, a pointer to one SKILL.md the package already ships. Codex
+// reads exactly four fields from it and gives it precedence over a
+// .codex-plugin/plugin.json file, which is why this package keeps a single
+// manifest.
 //
 // Every rule below is taken from the host implementation rather than the docs
 // page, because the two diverge. Anything the host silently drops is a failure
 // here: a warning in someone else's log is not a signal we ever see.
 
 const CODEX_NS = 'com.openai';
-const CODEX_EXTENSION_FIELDS = new Set(['interface', 'apps', 'hooks']);
+const CODEX_EXTENSION_FIELDS = new Set(['interface', 'onboardingSkill', 'apps', 'hooks']);
 const CODEX_INTERFACE_FIELDS = new Set([
   'displayName',
   'shortDescription',
@@ -539,6 +545,60 @@ function checkCodexInterface(iface) {
   }
 }
 
+// The open-source host's manifest loader reads `onboardingSkill` in
+// resolve_openai_onboarding_skill: a string, resolved as a manifest path inside
+// the plugin root, and a non-string value is ignored without a word. The loader
+// also accepts the path without its `./` prefix, but the published plugin docs
+// require the prefix, so this check holds the stricter form. The loader does not
+// check that the file is a skill. This check does: the pointer has to name a
+// SKILL.md that every host already discovers under skills/, so it can never
+// reach a skill only one client loads.
+function checkOnboardingSkill(value) {
+  const field = `${CODEX_NS} onboardingSkill`;
+  if (typeof value !== 'string' || value.length === 0) {
+    fail(`${field} is a non-empty string`, String(value));
+    return;
+  }
+  pass(`${field} is a non-empty string`);
+
+  if (!value.startsWith('./')) {
+    fail(`${field} starts with "./"`, value);
+    return;
+  }
+  pass(`${field} starts with "./"`);
+
+  const rest = value.slice(2);
+  const abs = resolve(ROOT, rest);
+  const contained =
+    rest.length > 0 &&
+    !rest.startsWith('/') &&
+    !rest.split('/').includes('..') &&
+    abs.startsWith(ROOT + sep);
+  if (!contained) {
+    fail(`${field} stays inside the plugin root`, value);
+    return;
+  }
+  pass(`${field} stays inside the plugin root`);
+
+  if (!existsSync(abs) || !lstatSync(abs).isFile()) {
+    fail(`${field} resolves to a file that exists`, value);
+    return;
+  }
+  pass(`${field} resolves to a file that exists`);
+
+  const parts = relative(ROOT, abs).split(sep);
+  const isSkill =
+    parts.length === 3 &&
+    parts[0] === 'skills' &&
+    parts[2] === 'SKILL.md' &&
+    discoveredSkills.has(parts[1]);
+  if (isSkill) {
+    pass(`${field} names the SKILL.md of a discovered skill`, value);
+  } else {
+    fail(`${field} names the SKILL.md of a discovered skill`, value);
+  }
+}
+
 if (manifest) {
   const extension = manifest.extensions?.[CODEX_NS];
   if (extension === undefined) {
@@ -560,6 +620,12 @@ if (manifest) {
       fail(`${CODEX_NS} interface is an object`, typeof extension.interface);
     } else {
       checkCodexInterface(extension.interface);
+    }
+
+    if (extension.onboardingSkill === undefined) {
+      pass(`${CODEX_NS} extension names no onboarding skill`);
+    } else {
+      checkOnboardingSkill(extension.onboardingSkill);
     }
   }
 }
