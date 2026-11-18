@@ -167,6 +167,44 @@ const CASES = [
     apply: (d) => editJson(d, 'plugin.json', (m) => (iface(m).commands = './commands')),
   },
   {
+    // The host ignores a non-string value without a word, so the listing loses
+    // its setup skill and nothing says why.
+    what: 'an onboarding skill pointer that is not a string',
+    expect: 'onboardingSkill is a non-empty string',
+    apply: (d) => editJson(d, 'plugin.json', (m) => (iface(m).onboardingSkill = true)),
+  },
+  {
+    what: 'an onboarding skill pointer without the documented "./" prefix',
+    expect: 'onboardingSkill starts with "./"',
+    apply: (d) =>
+      editJson(d, 'plugin.json', (m) => {
+        iface(m).onboardingSkill = 'skills/traveler-onboarding/SKILL.md';
+      }),
+  },
+  {
+    what: 'an onboarding skill pointer escaping the plugin root',
+    expect: 'onboardingSkill stays inside the plugin root',
+    apply: (d) =>
+      editJson(d, 'plugin.json', (m) => {
+        iface(m).onboardingSkill = './../elsewhere/SKILL.md';
+      }),
+  },
+  {
+    // Removed rather than repointed, the same way an interface asset breaks:
+    // the manifest keeps a path that still looks right.
+    what: 'an onboarding skill whose SKILL.md has been moved out from under it',
+    expect: 'onboardingSkill resolves to a file that exists',
+    apply: (d) => rmSync(join(d, 'skills/traveler-onboarding'), { recursive: true }),
+  },
+  {
+    what: 'an onboarding skill pointer at a file that is not a skill',
+    expect: 'onboardingSkill names the SKILL.md of a discovered skill',
+    apply: (d) =>
+      editJson(d, 'plugin.json', (m) => {
+        iface(m).onboardingSkill = './skills/travelermd/references/tools.md';
+      }),
+  },
+  {
     what: 'an interface field the host would silently ignore',
     expect: 'interface has no fields the host would ignore',
     apply: (d) => editJson(d, 'plugin.json', (m) => (iface(m).interface.iconUrl = 'x')),

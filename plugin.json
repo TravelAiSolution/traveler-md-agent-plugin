@@ -32,7 +32,8 @@
         "composerIcon": "./assets/icon.png",
         "logo": "./assets/logo.png",
         "logoDark": "./assets/logo-dark.png"
-      }
+      },
+      "onboardingSkill": "./skills/traveler-onboarding/SKILL.md"
     }
   }
 }

@@ -40,7 +40,7 @@ codex plugin add traveler-md@travelai
 
 The first command registers the marketplace this repository declares, named `travelai`. The second installs the one plugin in it. The traveler is asked to authorize on first use rather than at install time.
 
-The host reads the manifest at the repository root and finds the rest by convention: `skills/` and `mcp.json` are already where it looks, so there is no second manifest to keep in step. The host cannot infer how the plugin appears in an install listing. That metadata lives under `extensions["com.openai"]` in `plugin.json`. See [Portability across clients](#portability-across-clients).
+The host reads the manifest at the repository root and finds the rest by convention: `skills/` and `mcp.json` are already where it looks, so there is no second manifest to keep in step. The host cannot infer how the plugin appears in an install listing, or which skill to offer for setup. That metadata and that pointer live under `extensions["com.openai"]` in `plugin.json`. See [Portability across clients](#portability-across-clients).
 
 Cursor reads this package as well. It finds `skills/` and `mcp.json` the same way, and it takes the display name and logo for its listing from `.cursor-plugin/plugin.json`.
 
@@ -160,7 +160,7 @@ The skill documents each of these. It ships in the same package as the server co
 
 `plugin.json`'s top-level schema is closed: only `$schema`, `name`, `version`, `description`, `author`, `homepage`, `repository`, `license`, `keywords` and `extensions` are permitted. Hooks, agents, commands and similar features are not portable v1 components. If a client needs them, they belong under a reverse-domain namespace that client owns, either as an `extensions` object in the manifest or as a top-level `com.vendor.client/` directory.
 
-This package uses exactly one such namespace, `extensions["com.openai"]`, and only for how the plugin appears in an install listing: display name, category, listing copy, starter prompts, brand colour, the marks in `assets/` and the links to the privacy policy and terms. None of it changes what the plugin does, every other conforming client ignores it, and no portable component is declared there.
+This package uses exactly one such namespace, `extensions["com.openai"]`. It holds two things. The first is how the plugin appears in an install listing: display name, category, listing copy, starter prompts, brand colour, the marks in `assets/` and the links to the privacy policy and terms. The second is `onboardingSkill`, a pointer to `skills/traveler-onboarding/SKILL.md`, which an OpenAI host can offer as a setup skill after install. That skill is one every client already loads from `skills/`, so the pointer adds no skill and no MCP configuration that other clients do not get. Every other conforming client ignores the namespace, and no portable component is declared there. The namespace also accepts `apps` and `hooks`, and this package declares neither, because either would make what the plugin does depend on which client installed it.
 
 The marks in `assets/` are the Traveler.md logo and icon. The MIT licence covers the contents of this repository as a work, and it is not a licence to use TravelAI's names or logos.
 
